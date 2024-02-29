@@ -18,7 +18,8 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <title>CG1 Practical Course</title>
     </Helmet>
     <div className={'overflow-hidden ' + browserSpecificFullScreenClass}>
-      <Router basename={baseName == "/" ? "/" : ("/" + baseName.split("/").slice(3).join("/"))}>
+      {/** gitlab pages specific routing */}
+      <Router basename={baseName == "/" ? "/" : ("/" + baseName.split("/").slice(3).join("/"))}> 
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/*" element={<h1>404</h1>} />
