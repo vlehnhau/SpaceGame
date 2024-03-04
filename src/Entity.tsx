@@ -8,8 +8,8 @@ export interface Entity {
 export class Player implements Entity {
     components: Array<comp.Component>;
 
-    constructor(pos: Vector3) {
-        this.components.push(new comp.PhysicsComp(pos, new Vector3(0)))
+    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number) {
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount)];
     }
 }
 
@@ -17,6 +17,6 @@ export class Asteroid implements Entity {
     components: Array<comp.Component>;
 
     constructor() {
-        //renderComp = new comp.RenderComp()
+        
     }
 }

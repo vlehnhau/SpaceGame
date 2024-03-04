@@ -6,5 +6,5 @@ in vec3 uColor;
 out vec4 fColor;
 
 void main() {
-    fColor = vec4(vIntensity*uColor.r,vIntensity*uColor.g,vIntensity*uColor.b,1.0);
+    fColor = vec4(uColor, 1.0);
 }
