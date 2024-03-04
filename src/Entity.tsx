@@ -17,6 +17,6 @@ export class Asteroid implements Entity {
     components: Array<comp.Component>;
 
     constructor() {
-        
+
     }
 }

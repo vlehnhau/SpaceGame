@@ -19,18 +19,18 @@ export const isBlink = navigator.userAgent.includes("Chrome")
 const browserSpecificFullScreenClass = isBlink ? 'h-screen' : 'fullbody';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <>
-    <Helmet>
-      <title>CG1 Practical Course</title>
-    </Helmet>
-    <div className={'overflow-hidden ' + browserSpecificFullScreenClass}>
-      {/** gitlab pages specific routing */}
-      <Router basename={baseName == "/" ? "/" : ("/" + baseName.split("/").slice(3).join("/"))}> 
-        <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/*" element={<h1>404</h1>} />
-        </Routes>
-      </Router>
-    </div>
-  </>,
+    <>
+        <Helmet>
+            <title>CG1 Practical Course</title>
+        </Helmet>
+        <div className={'overflow-hidden ' + browserSpecificFullScreenClass}>
+            {/** gitlab pages specific routing */}
+            <Router basename={baseName == "/" ? "/" : ("/" + baseName.split("/").slice(3).join("/"))}>
+                <Routes>
+                    <Route path="/" element={<App />} />
+                    <Route path="/*" element={<h1>404</h1>} />
+                </Routes>
+            </Router>
+        </div>
+    </>,
 )
