@@ -1,9 +1,11 @@
 import * as comp from "./Components";
 import * as ent from "./Entity";
+import * as objLoader from "./Objloader";
 
 
 import VertexCode from './shader/base.vs.glsl?raw';
 import FragmentCode from './shader/base.fs.glsl?raw';
+import Mobel from './../resources/model.obj?raw';
 import { compileShaderProgram } from "./Utility";
 import { Matrix4, Vector3 } from "@math.gl/core";
 
@@ -12,6 +14,7 @@ export class Game {
     shaderID: WebGLProgram;
 
     constructor(gl: WebGL2RenderingContext) {
+        const obj = objLoader.load
         this.shaderID = compileShaderProgram(gl, VertexCode, FragmentCode);
 
         const vbo = [

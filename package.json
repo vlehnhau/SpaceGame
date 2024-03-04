@@ -20,6 +20,7 @@
     "@loaders.gl/obj": "4.0.4",
     "@math.gl/core": "4.0.0",
     "@types/js-cookie": "^3.0.6",
+    "@types/node": "^20.11.24",
     "@types/react-helmet": "^6.1.11",
     "@webgpu/types": "^0.1.40",
     "@zip.js/zip.js": "^2.7.33",
