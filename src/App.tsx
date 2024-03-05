@@ -24,7 +24,7 @@ const App = () => {
         resizeCanvas(canvas.current);
 
         setInterval(() => { contextRef.current.game.draw(contextRef.current.gl) }, 1);
-        setInterval(() => { myGame.moveAstroids() }, 1);
+       // setInterval(() => { myGame.autoMove() }, 1);
 
         window.addEventListener('resize', () => {
             resizeCanvas(canvas.current)

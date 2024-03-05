@@ -28,3 +28,13 @@ export class Asteroid implements Entity {
         this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(velVec)];
     }
 }
+
+export class Bullet implements Entity {
+    components: comp.Component[];
+
+    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number) {
+        let velVec = new Vector3(0,0,0);
+        velVec = velVec.multiplyByScalar(3);
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(velVec)];
+    }
+}

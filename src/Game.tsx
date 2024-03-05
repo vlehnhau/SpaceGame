@@ -10,6 +10,9 @@ import ModelMtlRaw from './../resources/Spaceship.mtl?raw';
 import { compileShaderProgram } from "./Utility";
 import { Matrix4, Vector3 } from "@math.gl/core";
 
+import ModelObjRawBullettracer from './../resources/LazerBullet.obj?raw';
+import ModelMtlRawBullettracer from './../resources/LazerBullet.mtl?raw';
+
 import ModelObjRawAsteroidOne from './../resources/Rock.obj?raw';
 import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
 
@@ -24,12 +27,19 @@ export class Game {
     modelVBO: Array<WebGLVertexArrayObject>; 
     modelLength: Array<number>;
 
+    modelVBOBullet: WebGLVertexArrayObject;
+    modelLengthBullet: number;
+
     constructor(gl: WebGL2RenderingContext) {
         const obj = loadObj(gl, ModelObjRaw, ModelMtlRaw);
         this.shaderID = compileShaderProgram(gl, VertexCode, FragmentCode);
 
         this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
         this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
+
+        this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
+        this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
+
 
         // const vbo = [
         //     -1, -1, -1,
@@ -75,6 +85,14 @@ export class Game {
         this.spawnAstroid();
         this.spawnAstroid();
         this.entities.push(new ent.Player(new Vector3(0, -300, -10), obj.vbo, obj.iboLength / 3));
+        this.shoot();
+    }
+
+    shoot() {
+        let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
+        let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+
+        this.entities.push(new ent.Bullet(playerPos.pos, this.modelVBOBullet, this.modelLengthBullet));
     }
 
     spawnAstroid() {
@@ -104,7 +122,7 @@ export class Game {
         }
     }
 
-    moveAstroids() {
+    autoMove() {
         this.entities.forEach(entity => {
             const velocityComp = entity.components.find(component => component instanceof comp.Velocity) as comp.Velocity;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
