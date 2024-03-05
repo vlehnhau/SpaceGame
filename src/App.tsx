@@ -24,6 +24,7 @@ const App = () => {
         resizeCanvas(canvas.current);
 
         setInterval(() => { contextRef.current.game.draw(contextRef.current.gl) }, 100);
+        setInterval(() => { myGame.moveAstroids() }, 1);
 
         window.addEventListener('resize', () => {
             resizeCanvas(canvas.current)
@@ -33,7 +34,6 @@ const App = () => {
     }
 
     const keyDown = (event: KeyboardEvent) => {
-        console.log("test");
         const ctx = contextRef.current
         if (!ctx) return;
 

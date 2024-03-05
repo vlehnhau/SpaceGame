@@ -16,7 +16,7 @@ export class Player implements Entity {
 export class Asteroid implements Entity {
     components: Array<comp.Component>;
 
-    constructor() {
-
+    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number) {
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(new Vector3(0, 0, 1))];
     }
 }

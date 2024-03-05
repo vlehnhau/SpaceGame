@@ -10,13 +10,26 @@ import ModelMtlRaw from './../resources/Spaceship.mtl?raw';
 import { compileShaderProgram } from "./Utility";
 import { Matrix4, Vector3 } from "@math.gl/core";
 
+import ModelObjRawAsteroidOne from './../resources/Rock.obj?raw';
+import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
+
+function randomIntFromInterval(min, max) { // min and max included 
+    return Math.floor(Math.random() * (max - min + 1) + min)
+}
+
 export class Game {
     entities: Array<ent.Entity>;
     shaderID: WebGLProgram;
 
+    modelVBO: Array<WebGLVertexArrayObject>; 
+    modelLength: Array<number>;
+
     constructor(gl: WebGL2RenderingContext) {
         const obj = loadObj(gl, ModelObjRaw, ModelMtlRaw);
         this.shaderID = compileShaderProgram(gl, VertexCode, FragmentCode);
+
+        this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
+        this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
 
         // const vbo = [
         //     -1, -1, -1,
@@ -54,7 +67,20 @@ export class Game {
         // gl.enableVertexAttribArray(0);
         // gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
-        this.entities = [new ent.Player(new Vector3(0, 0, 0), obj.vbo, obj.iboLength / 3)]
+        this.entities = [];
+
+        this.spawnAstroid(gl);
+        this.entities.push(new ent.Player(new Vector3(0, -300, -10), obj.vbo, obj.iboLength / 3));
+    }
+
+    spawnAstroid(gl: WebGL2RenderingContext) {
+        //let startPos = new Vector3(randomIntFromInterval(-6000, 6000), randomIntFromInterval(-3000, 3000), randomIntFromInterval(-5000,-4000));
+
+        let startPos = new Vector3(0, 0, -500);
+        //let x = randomIntFromInterval(0, this.modelVBO.length);
+        let x = 0;
+
+        this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3));
     }
 
     move(direction: string) { 
@@ -75,6 +101,19 @@ export class Game {
                 playerPos.pos.y = playerPos.pos.y - 10;
                 break;
         }
+    }
+
+    moveAstroids() {
+        this.entities.forEach(entity => {
+            const velocityComp = entity.components.find(component => component instanceof comp.Velocity) as comp.Velocity;
+            const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+
+            if (velocityComp && positionComp) {
+                positionComp.pos.x += velocityComp.vel.x;
+                positionComp.pos.y += velocityComp.vel.y;
+                positionComp.pos.z += velocityComp.vel.z;
+            }
+        });
     }
 
     draw(gl: WebGL2RenderingContext) {
