@@ -101,7 +101,6 @@ export const loadObj = (gl: WebGL2RenderingContext, objFileContent: string, mtlF
         }
         else
         {
-            console.log("" + i + " " + faceIndices[i])
             const vertexPosIndex = faceIndices[i] - 1;
             vertexBuffer.push(vertexPositions[vertexPosIndex * dataPerVertex],
                               vertexPositions[vertexPosIndex * dataPerVertex + 1],

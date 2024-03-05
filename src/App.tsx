@@ -1,5 +1,5 @@
 import * as elem from "./Game";
-import * as React from 'react'
+import * as React from 'react';
 
 type AppContext = {
     gl: WebGL2RenderingContext;
@@ -10,12 +10,13 @@ type AppContext = {
 const App = () => {
     const canvas = React.useRef<HTMLCanvasElement>();
     const contextRef = React.useRef<AppContext>();
+    let myGame: elem.Game;
 
     const init = async () => {
         const gl = canvas.current.getContext('webgl2', { antialias: true })
         if (!gl) return;
 
-        let myGame = new elem.Game(gl);
+        myGame = new elem.Game(gl);
         contextRef.current = {
             gl,
             game: myGame
@@ -28,6 +29,28 @@ const App = () => {
             resizeCanvas(canvas.current)
         });
 
+        window.addEventListener('keydown', keyDown)
+    }
+
+    const keyDown = (event: KeyboardEvent) => {
+        console.log("test");
+        const ctx = contextRef.current
+        if (!ctx) return;
+
+        let lru = false;
+        if (event.key === 'ArrowLeft') {
+            myGame.move('left');
+            lru = true;
+        } else if (event.key === 'ArrowRight') {
+            myGame.move('right');
+            lru = true;
+        } else if (event.key === 'ArrowUp') {
+            myGame.move('up');
+            lru = true;
+        } else if (event.key === 'ArrowDown') {
+            myGame.move('down');
+            lru = true;
+        }
     }
 
     React.useEffect(() => {
@@ -45,7 +68,7 @@ const App = () => {
     }
 
     return (
-        <div className='relative bg-white h-screen w-full'>
+        <div className='relative bg-black h-screen w-full'>
             <canvas ref={canvas} className='w-full h-screen'></canvas>
         </div>
     )

@@ -57,6 +57,26 @@ export class Game {
         this.entities = [new ent.Player(new Vector3(0, 0, 0), obj.vbo, obj.iboLength / 3)]
     }
 
+    move(direction: string) { 
+        let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
+        let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+
+        switch(direction) {
+            case 'left':
+                playerPos.pos.x = playerPos.pos.x - 10;
+                break;
+            case 'right':
+                playerPos.pos.x = playerPos.pos.x + 10;
+                break;
+            case 'up':
+                playerPos.pos.y = playerPos.pos.y + 10;
+                break;
+            case 'down':
+                playerPos.pos.y = playerPos.pos.y - 10;
+                break;
+        }
+    }
+
     draw(gl: WebGL2RenderingContext) {
         let near = 0.1;
         let far = 10000;
