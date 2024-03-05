@@ -112,7 +112,13 @@ export class Game {
                 positionComp.pos.x += velocityComp.vel.x;
                 positionComp.pos.y += velocityComp.vel.y;
                 positionComp.pos.z += velocityComp.vel.z;
+
+                if (positionComp.pos.z > 500) {
+                    this.entities.splice(this.entities.indexOf(entity), 1);
+                }
             }
+
+            console.log(this.entities.length);
         });
     }
 
