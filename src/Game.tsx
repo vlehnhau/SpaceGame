@@ -147,7 +147,23 @@ export class Game {
         let modelViewLoc = gl.getUniformLocation(this.shaderID, 'uModelView');
         gl.uniformMatrix4fv(projectionLoc, false, projMatrix);
 
-        this.entities.forEach(entity => {
+        let copy = this.entities.slice();
+        copy.sort((entityA, entityB) => {
+            const positionCompA = entityA.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+            const positionCompB = entityB.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+
+            if (positionCompA && positionCompB) {
+                return positionCompA.pos.z - positionCompB.pos.z;
+            } else if (positionCompA) {
+                return positionCompA.pos.z
+            } else if (positionCompB) {
+                return positionCompB.pos.z
+            } else {
+                //toDo: stimmt das hier für jeden Fall?
+            }
+        })
+
+        copy.forEach(entity => {
             const renderComp = entity.components.find(component => component instanceof comp.RenderComp) as comp.RenderComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 

@@ -23,7 +23,7 @@ export class Asteroid implements Entity {
     constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number) {
         let velVec = new Vector3().subVectors((new Vector3(randomIntFromInterval(-600,600), randomIntFromInterval(-300,300), 0)), pos)
         velVec.normalize()
-        velVec = velVec.multiplyByScalar(50)
+        velVec = velVec.multiplyByScalar(3)
 
         this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(velVec)];
     }
