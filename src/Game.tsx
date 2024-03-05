@@ -69,16 +69,17 @@ export class Game {
 
         this.entities = [];
 
-        this.spawnAstroid(gl);
+        this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
         this.entities.push(new ent.Player(new Vector3(0, -300, -10), obj.vbo, obj.iboLength / 3));
     }
 
-    spawnAstroid(gl: WebGL2RenderingContext) {
-        //let startPos = new Vector3(randomIntFromInterval(-6000, 6000), randomIntFromInterval(-3000, 3000), randomIntFromInterval(-5000,-4000));
-
-        let startPos = new Vector3(0, 0, -500);
-        //let x = randomIntFromInterval(0, this.modelVBO.length);
-        let x = 0;
+    spawnAstroid() {
+        let startPos = new Vector3(randomIntFromInterval(-10000,10000), randomIntFromInterval(-4000, 4000), randomIntFromInterval(-6000, -5000));
+        let x = randomIntFromInterval(0, this.modelVBO.length - 1);
 
         this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3));
     }
@@ -109,16 +110,14 @@ export class Game {
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
             if (velocityComp && positionComp) {
-                positionComp.pos.x += velocityComp.vel.x;
-                positionComp.pos.y += velocityComp.vel.y;
-                positionComp.pos.z += velocityComp.vel.z;
+                positionComp.pos = new Vector3().add(velocityComp.vel, positionComp.pos);
 
                 if (positionComp.pos.z > 500) {
                     this.entities.splice(this.entities.indexOf(entity), 1);
-                }
+                    this.spawnAstroid();
+                } 
             }
 
-            console.log(this.entities.length);
         });
     }
 
