@@ -1,3 +1,5 @@
 {
-    "task.autoDetect": "off"
+    "task.autoDetect": "off",
+    "emmet.showExpandedAbbreviation": "never",
+    "editor.inlayHints.enabled": "off"
 }
