@@ -27,7 +27,7 @@ type AppContext = {
 const drawScene = (context: AppContext) => {
     const gl = context.gl;
 
-    executeMovement(context);
+    // executeMovement(context);
 
     let rotationMat = normalMatrix(new Matrix4().lookAt({
         eye: context.cameraPos,
@@ -142,10 +142,6 @@ const App = () => {
         resizeCanvas(canvas.current);
         resizeViewport();
 
-        setInterval(() => { 
-            drawScene(contextRef.current);
-        }, 10);
-
         canvas.current.addEventListener('wheel', mouseWheel);
         canvas.current.addEventListener('mousedown', mouseDown);
         canvas.current.addEventListener('mouseup', mouseUp);
@@ -207,15 +203,19 @@ const App = () => {
             ctx.cameraPos = xyDir.scale(-2);
             
             ctx.mousePos = newPos;
+
+            drawScene(contextRef.current);
         }
     }
 
     const keyDown = (event: KeyboardEvent): void => {
         contextRef.current.keyPressedMap[event.key] = true;
+        drawScene(contextRef.current);
     }
 
     const keyUp = (event: KeyboardEvent): void => {
         contextRef.current.keyPressedMap[event.key] = false;
+        drawScene(contextRef.current);
     }
 
     React.useEffect(() => {
