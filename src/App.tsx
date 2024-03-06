@@ -24,7 +24,7 @@ const App = () => {
         resizeCanvas(canvas.current);
 
         setInterval(() => { contextRef.current.game.draw(contextRef.current.gl) }, 1);
-       // setInterval(() => { myGame.autoMove() }, 1);
+        setInterval(() => { myGame.autoMove() }, 1);
 
         window.addEventListener('resize', () => {
             resizeCanvas(canvas.current)
@@ -50,6 +50,9 @@ const App = () => {
         } else if (event.key === 'ArrowDown') {
             myGame.move('down');
             lru = true;
+        } else if (event.key === ' ') {
+            myGame.shoot();
+            lru = true
         }
     }
 

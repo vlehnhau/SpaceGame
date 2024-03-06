@@ -85,14 +85,20 @@ export class Game {
         this.spawnAstroid();
         this.spawnAstroid();
         this.entities.push(new ent.Player(new Vector3(0, -300, -10), obj.vbo, obj.iboLength / 3));
-        this.shoot();
     }
 
     shoot() {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
         let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
-        this.entities.push(new ent.Bullet(playerPos.pos, this.modelVBOBullet, this.modelLengthBullet));
+        let source = playerPos.pos
+        let destination = new Vector3(0, 0, 0);
+
+        destination.x = source.x;
+        destination.y = source.y;
+        destination.z = source.z;   
+        
+        this.entities.push(new ent.Bullet(destination, this.modelVBOBullet, this.modelLengthBullet / 3));
     }
 
     spawnAstroid() {
