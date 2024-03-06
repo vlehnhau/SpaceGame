@@ -2,13 +2,12 @@
 precision highp float;
 
 uniform vec3 uEyeWorldPos;
-uniform mat3 uRotationMatrix;
 
 in vec3 vFragmentPos;
 
 out vec4 fColor;
 
-const int MAX_STEPS = 100;
+const int MAX_STEPS = 200;
 const float BAILOUT_DIST = 10.0f;
 const float MIN_DIST = 0.0001f;
 
@@ -91,39 +90,45 @@ float sdBase( vec3 p )
                       sph(i,f,vec3(1,1,1)))));
 }
 
-float sdf(vec3 p) {
-    // return sdBoxFrame(pos, vec3(0.4f), 0.04f);
-    // return sdRoundBox(pos, vec3(0.5f, 0.3f, 0.5f), 0.025f);
-    // return sdHexPrism(pos, vec2(0.2));
+float sdf(vec3 pos) {
+    // return sdBoxFrame(p, vec3(0.4f), 0.04f);
+    // return sdRoundBox(p, vec3(0.5f, 0.3f, 0.5f), 0.025f);
+    // return sdHexPrism(p, vec2(0.2));
     // return sdSphere(pos, 1.0f);
-    // float s = 1.0;
-    // float sdfVal = sdSphere(pos, 1.0f);
-    // for(int i = 0; i < 6; i++) {
-    //     vec3 repPos = pos - s * round(pos / s);
 
-    //     sdfVal = max(sdfVal, -sdBox(repPos, vec3(s * 0.3f)));
-
-    //     s *= 0.5;
-    // }
-    // return sdfVal;
-    float d = sdSphere(p, 0.5f);
     float s = 1.0;
-    for(int i = 0; i < 7; i++)
-    {
-        // evaluate new octave
-        float n = s*sdBase(p);
+    float sdfVal = sdSphere(pos, 1.2f);
+    for(int i = 0; i < 2; i++) {
+        vec3 repPos = pos - s * round(pos / s);
 
-        // add
-        n = opSmoothIntersection(n, d - 0.1 * s, 0.3 * s);
-        d = smin(n, d, 0.3 * s);
+        float repSDF = sdSphere(repPos, s * 0.7f);
 
-        // prepare next octave
-        p = mat3( 0.00,  1.60,  1.20,
-                 -1.60,  0.72, -0.96,
-                 -1.20, -0.96,  1.28 )*p;
-        s = 0.5*s;
+        sdfVal = opSmoothIntersection(repSDF, sdfVal - 0.1f * s, 0.3f * s);
+
+        s *= 0.5;
     }
-    return d;
+    return sdfVal;
+
+    // float d = sdSphere(p, 0.5f);
+    // float s = 1.0;
+    // for(int i = 0; i < 7; i++)
+    // {
+    //     // evaluate new octave
+    //     float n = s*sdBase(p);
+
+    //     // add
+    //     n = opSmoothIntersection(n, d - 0.1 * s, 0.3 * s);
+    //     d = smin(n, d, 0.3 * s);
+
+    //     // prepare next octave
+    //     p = mat3( 0.00,  1.60,  1.20,
+    //              -1.60,  0.72, -0.96,
+    //              -1.20, -0.96,  1.28 )*p;
+    //     s = 0.5*s;
+    // }
+    // return d;
+
+
 }
 
 vec3 calcSDFNormal(in vec3 p) {
@@ -139,7 +144,7 @@ void main() {
     int steps = 0;
 
     // the computation distance should not exceed uBailout
-    vec3 stepDirection = uRotationMatrix * normalize(vFragmentPos - vec3(0, 0, 1));
+    vec3 stepDirection = normalize(vFragmentPos);
     vec3 currentPos = uEyeWorldPos;
     while(true) {
         steps++;
