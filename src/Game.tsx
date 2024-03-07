@@ -55,7 +55,7 @@ export class Game {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
         let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
-        let destination = new Vector3(playerPos.pos.x, playerPos.pos.y, playerPos.pos.z);
+        let destination = new Vector3(playerPos.pos.x, playerPos.pos.y, playerPos.pos.z - 50);
         
         this.entities.push(new ent.Bullet(destination, this.modelVBOBullet, this.modelLengthBullet / 3));
     }
@@ -87,15 +87,21 @@ export class Game {
         }
 
         let pos = (player.components.find(componentPos => componentPos instanceof comp.PositionComp) as comp.PositionComp).pos
-        if (newPos.x > 2000 || newPos.x < -2000) {
-            player.InitiatePlayerMove(new Vector3(pos.x, newPos.y, pos.z));
-        } else if (newPos.y > 800 || newPos.y < -1500) {
-            player.InitiatePlayerMove(new Vector3(newPos.x, pos.y, pos.z));
+        
+        let borderX = 2000;
+        let borderY = 1000;
+        
+        if (pos.x > borderX) {
+            player.InitiatePlayerMove(new Vector3(borderX - 1, newPos.y, pos.z));
+        } else if (pos.x < -borderX) {
+            player.InitiatePlayerMove(new Vector3(-borderX + 1, newPos.y, pos.z));
+        } else if (pos.y > borderY) {
+            player.InitiatePlayerMove(new Vector3(newPos.x, borderY - 1, pos.z));
+        } else if (pos.y < -borderY) {
+            player.InitiatePlayerMove(new Vector3(newPos.x, -borderY + 1, pos.z));
         } else {
             player.InitiatePlayerMove(newPos)
         }
-
-        
     }
 
     autoMove() {
@@ -162,9 +168,7 @@ export class Game {
                 return positionCompA.pos.z
             } else if (positionCompB) {
                 return positionCompB.pos.z
-            } else {
-                //toDo: stimmt das hier für jeden Fall?
-            }
+            } 
         })
 
         copy.forEach(entity => {
@@ -175,7 +179,8 @@ export class Game {
                 const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
 
                 modelMatrix.multiplyRight(viewMatrix);
-
+                
+                
                 gl.bindVertexArray(renderComp.vao);
                 gl.uniformMatrix4fv(modelViewLoc, false, modelMatrix);
                 // gl.drawArrays(gl.TRIANGLES, 0, renderComp.countTriangles);
