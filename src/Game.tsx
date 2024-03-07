@@ -73,26 +73,29 @@ export class Game {
 
         switch(direction) {
             case 'left':
-                newPos = new Vector3(player.newPos.x - 100, player.newPos.y, player.newPos.z)
-
-                player.InitiatePlayerMove(newPos)
+                newPos = new Vector3(player.newPos.x - 100, player.newPos.y, player.newPos.z);
                 break;
             case 'right':
-                newPos = new Vector3(player.newPos.x + 100, player.newPos.y, player.newPos.z)
-
-                player.InitiatePlayerMove(newPos)
+                newPos = new Vector3(player.newPos.x + 100, player.newPos.y, player.newPos.z);
                 break;
             case 'up':
-                newPos = new Vector3(player.newPos.x, player.newPos.y + 100, player.newPos.z)
-
-                player.InitiatePlayerMove(newPos)
+                newPos = new Vector3(player.newPos.x, player.newPos.y + 100, player.newPos.z);
                 break;
             case 'down':
-                newPos = new Vector3(player.newPos.x, player.newPos.y - 100, player.newPos.z)
-
-                player.InitiatePlayerMove(newPos)
+                newPos = new Vector3(player.newPos.x, player.newPos.y - 100, player.newPos.z);
                 break;
         }
+
+        let pos = (player.components.find(componentPos => componentPos instanceof comp.PositionComp) as comp.PositionComp).pos
+        if (newPos.x > 900 || newPos.x < -900) {
+            player.InitiatePlayerMove(new Vector3(pos.x, newPos.y, pos.z));
+        } else if (newPos.y > 300 || newPos.y < -490) {
+            player.InitiatePlayerMove(new Vector3(newPos.x, pos.y, pos.z));
+        } else {
+            player.InitiatePlayerMove(newPos)
+        }
+
+        
     }
 
     autoMove() {
@@ -114,7 +117,7 @@ export class Game {
                     if (vel === new Vector3(0)) { 
                         vel = positionComp.pos;
                     } else {
-                        vel = vel.multiplyByScalar(0.99);
+                        vel = vel.multiplyByScalar(0.998);
                     }
                 }
             }
