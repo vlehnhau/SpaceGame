@@ -11,9 +11,27 @@ export interface Entity {
 
 export class Player implements Entity {
     components: Array<comp.Component>;
+    newPos: Vector3;
 
     constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number) {
+        this.newPos = new Vector3(pos.x, pos.y, pos.z);
         this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount)];
+    }
+
+    InitiatePlayerMove(newPos: Vector3) {
+        this.newPos = newPos;
+        let playerPos = (this.components.find(componentPosition => componentPosition instanceof comp.PositionComp) as comp.PositionComp).pos;
+        
+        let lastVel = this.components.find(componentVel => componentVel instanceof comp.VelocityComp)
+        if (lastVel) {
+            this.components.splice(this.components.indexOf(lastVel), 1);
+        }
+
+        let vel = new Vector3().subVectors(newPos, playerPos)
+        vel.normalize
+        vel = vel.multiplyByScalar(0.01)
+        
+        this.components.push(new comp.VelocityComp(vel));
     }
 }
 
@@ -25,7 +43,7 @@ export class Asteroid implements Entity {
         velVec.normalize()
         velVec = velVec.multiplyByScalar(3)
 
-        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(velVec)];
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.VelocityComp(velVec)];
     }
 }
 
@@ -35,6 +53,6 @@ export class Bullet implements Entity {
     constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number) {
         let velVec = new Vector3(0,0,-1);
         velVec = velVec.multiplyByScalar(3);
-        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(velVec)];
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.VelocityComp(velVec)];
     }
 }

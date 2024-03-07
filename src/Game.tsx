@@ -40,43 +40,6 @@ export class Game {
         this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
         this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
 
-
-        // const vbo = [
-        //     -1, -1, -1,
-        //     1, -1, -1,
-        //     -1, 1, -1,
-        //     1, 1, -1,
-        //     -1, 1, 1,
-        //     1, 1, 1,
-        //     -1, -1, 1,
-        //     1, -1, 1,
-        //     -1, -1, -1,
-        //     -1, 1, -1,
-        //     1, -1, -1,
-        //     1, 1, -1,
-        //     -1, -1, 1,
-        //     -1, 1, 1,
-        //     1, -1, 1,
-        //     1, 1, 1,
-        //     -1, -1, -1,
-        //     -1, -1, 1,
-        //     1, -1, -1,
-        //     1, -1, 1,
-        //     1, 1, -1,
-        //     1, 1, 1,
-        //     -1, 1, -1,
-        //     -1, 1, 1
-        // ];
-
-        // const vao = gl.createVertexArray();
-        // gl.bindVertexArray(vao);
-
-        // const vertexBuffer = gl.createBuffer();
-        // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vbo), gl.STATIC_DRAW);
-        // gl.enableVertexAttribArray(0);
-        // gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-
         this.entities = [];
 
         this.spawnAstroid();
@@ -84,6 +47,7 @@ export class Game {
         this.spawnAstroid();
         this.spawnAstroid();
         this.spawnAstroid();
+
         this.entities.push(new ent.Player(new Vector3(0, -300, -10), obj.vbo, obj.iboLength / 3));
     }
 
@@ -91,12 +55,7 @@ export class Game {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
         let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
-        let source = playerPos.pos
-        let destination = new Vector3(0, 0, 0);
-
-        destination.x = source.x;
-        destination.y = source.y;
-        destination.z = source.z;   
+        let destination = new Vector3(playerPos.pos.x, playerPos.pos.y, playerPos.pos.z);
         
         this.entities.push(new ent.Bullet(destination, this.modelVBOBullet, this.modelLengthBullet / 3));
     }
@@ -110,27 +69,35 @@ export class Game {
 
     move(direction: string) { 
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
-        let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+        let newPos = new Vector3();
 
         switch(direction) {
             case 'left':
-                playerPos.pos.x = playerPos.pos.x - 10;
+                newPos = new Vector3(player.newPos.x - 100, player.newPos.y, player.newPos.z)
+
+                player.InitiatePlayerMove(newPos)
                 break;
             case 'right':
-                playerPos.pos.x = playerPos.pos.x + 10;
+                newPos = new Vector3(player.newPos.x + 100, player.newPos.y, player.newPos.z)
+
+                player.InitiatePlayerMove(newPos)
                 break;
             case 'up':
-                playerPos.pos.y = playerPos.pos.y + 10;
+                newPos = new Vector3(player.newPos.x, player.newPos.y + 100, player.newPos.z)
+
+                player.InitiatePlayerMove(newPos)
                 break;
             case 'down':
-                playerPos.pos.y = playerPos.pos.y - 10;
+                newPos = new Vector3(player.newPos.x, player.newPos.y - 100, player.newPos.z)
+
+                player.InitiatePlayerMove(newPos)
                 break;
         }
     }
 
     autoMove() {
         this.entities.forEach(entity => {
-            const velocityComp = entity.components.find(component => component instanceof comp.Velocity) as comp.Velocity;
+            const velocityComp = entity.components.find(component => component instanceof comp.VelocityComp) as comp.VelocityComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
             if (velocityComp && positionComp) {
@@ -141,7 +108,15 @@ export class Game {
                     this.spawnAstroid();
                 } else if(positionComp.pos.z< -10000) {
                     this.entities.splice(this.entities.indexOf(entity), 1);
-                } 
+                } else if(entity instanceof ent.Player) {
+                    let vel = (entity.components.find(componentVel => componentVel instanceof comp.VelocityComp) as comp.VelocityComp).vel
+
+                    if (vel === new Vector3(0)) { 
+                        vel = positionComp.pos;
+                    } else {
+                        vel = vel.multiplyByScalar(0.99);
+                    }
+                }
             }
 
         });

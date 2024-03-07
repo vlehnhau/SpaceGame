@@ -6,7 +6,7 @@ export class PositionComp implements Component {
     constructor(public pos: Vector3) { }
 }
 
-export class Velocity implements Component {
+export class VelocityComp implements Component {
     constructor(public vel: Vector3) { }
 }
 

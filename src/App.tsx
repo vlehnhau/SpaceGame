@@ -3,6 +3,7 @@ import * as React from 'react';
 
 type AppContext = {
     gl: WebGL2RenderingContext;
+    // keyPressedMap: Record<string, boolean>;
 
     game: elem.Game;
 }
@@ -20,6 +21,7 @@ const App = () => {
         contextRef.current = {
             gl,
             game: myGame
+            // keyPressedMap: {}
         }
         resizeCanvas(canvas.current);
 
@@ -37,17 +39,36 @@ const App = () => {
         const ctx = contextRef.current
         if (!ctx) return;
 
+        // const keyDown = (event: KeyboardEvent) => {
+        //     const ctx = contextRef.current
+        //     if (!ctx) return;
+    
+        //     if (ctx.keyPressedMap['w']) {            
+        //         myGame.move('up')
+        //     }
+        //     else if (ctx.keyPressedMap['s']) {
+        //         myGame.move('down');
+        //     }
+        
+        //     if (ctx.keyPressedMap['a']) {
+        //         myGame.move('left');
+        //     }
+        //     else if (ctx.keyPressedMap['d']) {
+        //         myGame.move('right');
+        //     }
+        // }
+
         let lru = false;
-        if (event.key === 'ArrowLeft') {
+        if (event.key === 'ArrowLeft' ||  event.key === 'a') {
             myGame.move('left');
             lru = true;
-        } else if (event.key === 'ArrowRight') {
+        } else if (event.key === 'ArrowRight' ||  event.key === 'd') {
             myGame.move('right');
             lru = true;
-        } else if (event.key === 'ArrowUp') {
+        } else if (event.key === 'ArrowUp' ||  event.key === 'w') {
             myGame.move('up');
             lru = true;
-        } else if (event.key === 'ArrowDown') {
+        } else if (event.key === 'ArrowDown' ||  event.key === 's') {
             myGame.move('down');
             lru = true;
         } else if (event.key === ' ') {
