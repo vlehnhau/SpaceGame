@@ -1,15 +1,21 @@
 import * as React from 'react'
-import { compileShaderProgram, resizeCanvas, normalMatrix } from './Utility';
+import { compileShaderProgram, resizeCanvas, normalMatrix, loadImage } from './Utility';
 
 import PlanetVertexShaderRaw from "./shader/Planet.vs.glsl?raw"
 import PlanetFragmentShaderRaw from "./shader/Planet.fs.glsl?raw"
 import { Matrix4, Vector2, Vector3 } from '@math.gl/core';
+import { RangeSlider } from './ui/RangeSlider';
+import { UIPanel } from './ui/UIPanel';
 
 type AppContext = {
     gl: WebGL2RenderingContext;
     planetShader: WebGLProgram;
     quadVAO: WebGLBuffer;
     aspectRatio: number;
+    noiseMap: WebGLTexture;
+
+    displacementFactor: number;
+    displacementExponent: number;
 
     keyPressedMap: Record<string, boolean>;
     mousePos: Vector2;
@@ -27,39 +33,42 @@ type AppContext = {
 const drawScene = (context: AppContext) => {
     const gl = context.gl;
 
-    // executeMovement(context);
-
-    let rotationMat = normalMatrix(new Matrix4().lookAt({
+    const rotationMat = normalMatrix(new Matrix4().lookAt({
         eye: context.cameraPos,
         center: new Vector3().addVectors(context.cameraPos, context.cameraViewDirection),
         up: new Vector3(0, 1, 0)
     }));
 
     const projectionMatrix = new Matrix4().identity();
-    projectionMatrix.setElement(0, 0, 1 / context.aspectRatio);
+    projectionMatrix.setElement(1, 1, context.aspectRatio);
     projectionMatrix.scale([context.zoom, context.zoom, context.zoom]);
 
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
     gl.useProgram(context.planetShader);
-    
-    const projectionMatrixLocation = gl.getUniformLocation(context.planetShader, "uProjectionMatrix");
-    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
+
+    gl.uniform1f(gl.getUniformLocation(context.planetShader, "uDisplacementFactor"), context.displacementFactor);
+
+    gl.uniform1f(gl.getUniformLocation(context.planetShader, "uDisplacementExponent"), context.displacementExponent);
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(context.planetShader, "uProjectionMatrix"), false, projectionMatrix);
 
     gl.uniformMatrix3fv(gl.getUniformLocation(context.planetShader, "uRotationMatrix"), false, rotationMat);
 
-    const eyeWorldPosLocation = gl.getUniformLocation(context.planetShader, "uEyeWorldPos");
-    gl.uniform3fv(eyeWorldPosLocation, context.cameraPos);
+    gl.uniform3fv(gl.getUniformLocation(context.planetShader, "uEyeWorldPos"), context.cameraPos);
     
     gl.bindVertexArray(context.quadVAO);
 
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 }
 
-const executeMovement = (context: AppContext) => {
-    const xyDir = new Vector3(-Math.cos(context.cameraYaw), 0, Math.sin(context.cameraYaw));
+// Returns if the camera has moved
+const executeMovement = (context: AppContext): boolean => {
+    const oldCameraPos = new Vector3(context.cameraPos);
 
+    const xyDir = new Vector3(-Math.cos(context.cameraYaw), 0, Math.sin(context.cameraYaw));
+    
     if (context.keyPressedMap['w']) {            
         context.cameraPos.addScaledVector(xyDir, context.cameraSpeed);
     }
@@ -76,12 +85,14 @@ const executeMovement = (context: AppContext) => {
         context.cameraPos.addScaledVector(rightVec, -context.cameraSpeed);
     }
 
-    if (context.keyPressedMap['Shift']) {
+    if (context.keyPressedMap['v']) {
         context.cameraPos.y -= context.cameraSpeed;
     }
     else if (context.keyPressedMap[' ']) {
         context.cameraPos.y += context.cameraSpeed;
     }
+
+    return !oldCameraPos.exactEquals(context.cameraPos);
 }
 
 const createQuadVAO = (gl: WebGL2RenderingContext) => {
@@ -109,6 +120,26 @@ const createQuadVAO = (gl: WebGL2RenderingContext) => {
     return vao;
 }
 
+async function createNoiseMap(gl: WebGL2RenderingContext, shaderProgram: WebGLProgram, uniformName: string): Promise<WebGLTexture> {
+    const noiseMapImage = await loadImage("./../resources/NoiseMap.png");
+
+    var noiseMapTexture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+
+    gl.useProgram(shaderProgram);
+    gl.bindTexture(gl.TEXTURE_2D, noiseMapTexture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, noiseMapImage);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+    gl.uniform1i(gl.getUniformLocation(shaderProgram, uniformName), 0);
+
+    return noiseMapTexture;
+}
+
 const App = () => {
     const canvas = React.useRef<HTMLCanvasElement>();
     const contextRef = React.useRef<AppContext>();
@@ -120,11 +151,17 @@ const App = () => {
         const planetShader = compileShaderProgram(gl, PlanetVertexShaderRaw, PlanetFragmentShaderRaw);
         const quadVAO = createQuadVAO(gl);
 
+        const noiseMap = await createNoiseMap(gl, planetShader, "uNoiseMap");
+
         contextRef.current = {
             gl,
             planetShader,
             quadVAO,
             aspectRatio: 1.0,
+            noiseMap: noiseMap,
+
+            displacementFactor: 0.6,
+            displacementExponent: 6.0,
 
             keyPressedMap: {},
             mousePos: null,
@@ -133,7 +170,7 @@ const App = () => {
             zoom: 1.0,
 
             cameraPos: new Vector3(2, 0, 0),
-            cameraViewDirection: new Vector3(1, 0, 0),
+            cameraViewDirection: new Vector3(1, 0, 0).normalize(),
             cameraPitch: 0,
             cameraYaw: 0,
             cameraSpeed: 0.07
@@ -141,6 +178,13 @@ const App = () => {
 
         resizeCanvas(canvas.current);
         resizeViewport();
+
+        drawScene(contextRef.current);
+
+        setInterval(() => {
+            if (executeMovement(contextRef.current))
+                drawScene(contextRef.current);
+        }, 10);
 
         canvas.current.addEventListener('wheel', mouseWheel);
         canvas.current.addEventListener('mousedown', mouseDown);
@@ -164,6 +208,7 @@ const App = () => {
         if (!contextRef.current) 
             return;
         contextRef.current.zoom += event.deltaY * 0.0008;
+        drawScene(contextRef.current);
     }
 
     const mouseDown = (event: MouseEvent): void => {
@@ -188,19 +233,18 @@ const App = () => {
 
         if (ctx.mousePressed) {
             const newPos = new Vector2(event.clientX, event.clientY);
-
+            
             ctx.cameraYaw   -= ((newPos.x - ctx.mousePos.x) * 0.11) * Math.PI / 180;
-            // ctx.cameraPitch -= ((newPos.y - ctx.mousePos.y) * 0.11) * Math.PI / 180;
+            // ctx.cameraPitch += ((newPos.y - ctx.mousePos.y) * 0.11) * Math.PI / 180;
 
             ctx.cameraViewDirection.x = Math.cos(ctx.cameraPitch) * Math.cos(ctx.cameraYaw);
             ctx.cameraViewDirection.y = Math.sin(ctx.cameraPitch);
             ctx.cameraViewDirection.z = Math.cos(ctx.cameraPitch) * Math.sin(ctx.cameraYaw);
             ctx.cameraViewDirection.normalize();
 
+            // const xyDir = new Vector3(-Math.cos(ctx.cameraYaw), 0, Math.sin(ctx.cameraYaw));
 
-            const xyDir = new Vector3(-Math.cos(ctx.cameraYaw), 0, Math.sin(ctx.cameraYaw));
-
-            ctx.cameraPos = xyDir.scale(-2);
+            // ctx.cameraPos = xyDir.scale(-2);
             
             ctx.mousePos = newPos;
 
@@ -209,12 +253,14 @@ const App = () => {
     }
 
     const keyDown = (event: KeyboardEvent): void => {
-        contextRef.current.keyPressedMap[event.key] = true;
+
+        contextRef.current.keyPressedMap[event.key.toLowerCase()] = true;
         drawScene(contextRef.current);
     }
 
     const keyUp = (event: KeyboardEvent): void => {
-        contextRef.current.keyPressedMap[event.key] = false;
+        
+        contextRef.current.keyPressedMap[event.key.toLowerCase()] = false;
         drawScene(contextRef.current);
     }
 
@@ -225,6 +271,32 @@ const App = () => {
     return (
         <div className='relative bg-white h-screen w-full'>
             <canvas ref={canvas} className='w-full h-screen' onKeyDown={(e) => console.log("Hehe")}></canvas>
+            
+            <UIPanel>
+                Displacement Factor:
+                <RangeSlider 
+                    value={0.6}
+                    min={0}
+                    max={3}
+                    step={0.001}
+                    onChange={(value) => {
+                        contextRef.current.displacementFactor = value;
+                        drawScene(contextRef.current);
+                    }}>
+                </RangeSlider>   
+                Displacement Exponent:
+                <RangeSlider 
+                    value={6}
+                    min={1}
+                    max={10}
+                    step={0.05}
+                    onChange={(value) => {
+                        contextRef.current.displacementExponent = value;
+                        drawScene(contextRef.current);
+                    }}>
+                </RangeSlider>   
+                
+            </UIPanel>
         </div>
     )
 }
