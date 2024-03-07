@@ -33,52 +33,44 @@ const App = () => {
             resizeCanvas(canvas.current)
         });
 
-        window.addEventListener('keydown', keyDown)
+        window.addEventListener('keydown', keyDown);
+        window.addEventListener('keyup', keyUp);
     }
 
     const executeMovement = () => {
         const ctx = contextRef.current;
 
-        if (ctx.keyPressedMap['w']) {            
+        if (ctx.keyPressedMap['w'] || ctx.keyPressedMap['ArrowUp']) {            
             myGame.move('up');
         }
-        else if (ctx.keyPressedMap['s']) {
+        else if (ctx.keyPressedMap['s'] || ctx.keyPressedMap['ArrowDown']) {
             myGame.move('down');
         }
     
-        if (ctx.keyPressedMap['a']) {
+        if (ctx.keyPressedMap['a'] || ctx.keyPressedMap['ArrowLeft']) {
             myGame.move('left');
         }
-        else if (ctx.keyPressedMap['d']) {
+        else if (ctx.keyPressedMap['d'] || ctx.keyPressedMap['ArrowRight']) {
             myGame.move('right');
         }
     
         if (ctx.keyPressedMap[' ']) {
             myGame.shoot();
         }
+    }
 
-        ctx.keyPressedMap['w'] = false;
-        ctx.keyPressedMap['a'] = false;
-        ctx.keyPressedMap['s'] = false;
-        ctx.keyPressedMap['d'] = false;
-        ctx.keyPressedMap[' '] = false;
+    const keyUp = (event: KeyboardEvent) => {
+        const ctx = contextRef.current;
+        if (!ctx) return;
+
+        ctx.keyPressedMap[event.key] = false;
     }
 
     const keyDown = (event: KeyboardEvent) => {
         const ctx = contextRef.current;
         if (!ctx) return;
 
-        if (event.key === 'ArrowLeft' ||  event.key === 'a') {
-            ctx.keyPressedMap['a'] = true;
-        } else if (event.key === 'ArrowRight' ||  event.key === 'd') {
-            ctx.keyPressedMap['d'] = true;
-        } else if (event.key === 'ArrowUp' ||  event.key === 'w') {
-            ctx.keyPressedMap['w'] = true;
-        } else if (event.key === 'ArrowDown' ||  event.key === 's') {
-            ctx.keyPressedMap['s'] = true;
-        } else if (event.key === ' ') {
-            ctx.keyPressedMap[' '] = true;
-        }
+        ctx.keyPressedMap[event.key] = true;
     }
 
     React.useEffect(() => {

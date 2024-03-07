@@ -48,7 +48,7 @@ export class Game {
         this.spawnAstroid();
         this.spawnAstroid();
 
-        this.entities.push(new ent.Player(new Vector3(0, -300, -10), obj.vbo, obj.iboLength / 3));
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vbo, obj.iboLength / 3));
     }
 
     shoot() {
@@ -87,9 +87,9 @@ export class Game {
         }
 
         let pos = (player.components.find(componentPos => componentPos instanceof comp.PositionComp) as comp.PositionComp).pos
-        if (newPos.x > 900 || newPos.x < -900) {
+        if (newPos.x > 2000 || newPos.x < -2000) {
             player.InitiatePlayerMove(new Vector3(pos.x, newPos.y, pos.z));
-        } else if (newPos.y > 300 || newPos.y < -490) {
+        } else if (newPos.y > 800 || newPos.y < -1500) {
             player.InitiatePlayerMove(new Vector3(newPos.x, pos.y, pos.z));
         } else {
             player.InitiatePlayerMove(newPos)
@@ -117,7 +117,7 @@ export class Game {
                     if (vel === new Vector3(0)) { 
                         vel = positionComp.pos;
                     } else {
-                        vel = vel.multiplyByScalar(0.998);
+                        vel = vel.multiplyByScalar(0.99);
                     }
                 }
             }
