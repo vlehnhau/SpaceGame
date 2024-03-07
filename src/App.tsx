@@ -3,7 +3,7 @@ import * as React from 'react';
 
 type AppContext = {
     gl: WebGL2RenderingContext;
-    // keyPressedMap: Record<string, boolean>;
+    keyPressedMap: Record<string, boolean>;
 
     game: elem.Game;
 }
@@ -20,12 +20,13 @@ const App = () => {
         myGame = new elem.Game(gl);
         contextRef.current = {
             gl,
-            game: myGame
-            // keyPressedMap: {}
+            game: myGame,
+            keyPressedMap: {}
         }
         resizeCanvas(canvas.current);
 
         setInterval(() => { contextRef.current.game.draw(contextRef.current.gl) }, 1);
+        setInterval(() => { executeMovement() }, 100);
         setInterval(() => { myGame.autoMove() }, 1);
 
         window.addEventListener('resize', () => {
@@ -35,45 +36,48 @@ const App = () => {
         window.addEventListener('keydown', keyDown)
     }
 
+    const executeMovement = () => {
+        const ctx = contextRef.current;
+
+        if (ctx.keyPressedMap['w']) {            
+            myGame.move('up');
+        }
+        else if (ctx.keyPressedMap['s']) {
+            myGame.move('down');
+        }
+    
+        if (ctx.keyPressedMap['a']) {
+            myGame.move('left');
+        }
+        else if (ctx.keyPressedMap['d']) {
+            myGame.move('right');
+        }
+    
+        if (ctx.keyPressedMap[' ']) {
+            myGame.shoot();
+        }
+
+        ctx.keyPressedMap['w'] = false;
+        ctx.keyPressedMap['a'] = false;
+        ctx.keyPressedMap['s'] = false;
+        ctx.keyPressedMap['d'] = false;
+        ctx.keyPressedMap[' '] = false;
+    }
+
     const keyDown = (event: KeyboardEvent) => {
-        const ctx = contextRef.current
+        const ctx = contextRef.current;
         if (!ctx) return;
 
-        // const keyDown = (event: KeyboardEvent) => {
-        //     const ctx = contextRef.current
-        //     if (!ctx) return;
-    
-        //     if (ctx.keyPressedMap['w']) {            
-        //         myGame.move('up')
-        //     }
-        //     else if (ctx.keyPressedMap['s']) {
-        //         myGame.move('down');
-        //     }
-        
-        //     if (ctx.keyPressedMap['a']) {
-        //         myGame.move('left');
-        //     }
-        //     else if (ctx.keyPressedMap['d']) {
-        //         myGame.move('right');
-        //     }
-        // }
-
-        let lru = false;
         if (event.key === 'ArrowLeft' ||  event.key === 'a') {
-            myGame.move('left');
-            lru = true;
+            ctx.keyPressedMap['a'] = true;
         } else if (event.key === 'ArrowRight' ||  event.key === 'd') {
-            myGame.move('right');
-            lru = true;
+            ctx.keyPressedMap['d'] = true;
         } else if (event.key === 'ArrowUp' ||  event.key === 'w') {
-            myGame.move('up');
-            lru = true;
+            ctx.keyPressedMap['w'] = true;
         } else if (event.key === 'ArrowDown' ||  event.key === 's') {
-            myGame.move('down');
-            lru = true;
+            ctx.keyPressedMap['s'] = true;
         } else if (event.key === ' ') {
-            myGame.shoot();
-            lru = true
+            ctx.keyPressedMap[' '] = true;
         }
     }
 
