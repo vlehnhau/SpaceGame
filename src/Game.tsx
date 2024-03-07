@@ -136,9 +136,11 @@ export class Game {
             if (velocityComp && positionComp) {
                 positionComp.pos = new Vector3().add(velocityComp.vel, positionComp.pos);
 
-                if (positionComp.pos.z > 500) {
+                if (entity instanceof ent.Asteroid && positionComp.pos.z > 500) {
                     this.entities.splice(this.entities.indexOf(entity), 1);
                     this.spawnAstroid();
+                } else if(positionComp.pos.z< -10000) {
+                    this.entities.splice(this.entities.indexOf(entity), 1);
                 } 
             }
 

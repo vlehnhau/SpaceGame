@@ -36,7 +36,5 @@ export class Bullet implements Entity {
         let velVec = new Vector3(0,0,-1);
         velVec = velVec.multiplyByScalar(3);
         this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount), new comp.Velocity(velVec)];
-
-        //toDo: abfängen damit nicht unendlich weit
     }
 }
