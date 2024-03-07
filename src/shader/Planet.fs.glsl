@@ -79,7 +79,7 @@ void main() {
 
             float normalizedDisplacement = displacement / (pow(1.0 * uDisplacementFactor, uDisplacementExponent));
 
-            if (normalizedDisplacement <= 0.01) {
+            if (normalizedDisplacement <= 0.001) {
                 color = vec3(0.0, 0.0, 1.0);
             }
             else if (normalizedDisplacement <= 0.1) {
