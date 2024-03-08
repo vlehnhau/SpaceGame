@@ -130,16 +130,69 @@ export const loadObj = (gl: WebGL2RenderingContext, objFileContent: string, mtlF
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 8 * 4, 0);
     gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 8 * 4, 3 * 4);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 8 * 4, 3 * 4);
     gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 8 * 4, 6 * 4);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 8 * 4, 5 * 4);
 
     const ibo = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indexBuffer), gl.STATIC_DRAW);
 
+    let materials = parseMTL(mtlFileContent);
+
     return {
         vbo: vao, 
-        iboLength: indexBuffer.length
+        iboLength: indexBuffer.length,
+        materials: materials
     }
 }
+
+function parseMTL(text) {
+    const materials = {};
+    let material;
+  
+    const keywords = {
+      newmtl(parts, unparsedArgs) {
+        material = {};
+        materials[unparsedArgs] = material;
+      },
+      /* eslint brace-style:0 */
+      Ns(parts)       { material.shininess      = parseFloat(parts[0]); },
+      Ka(parts)       { material.ambient        = parts.map(parseFloat); },
+      Kd(parts)       { material.diffuse        = parts.map(parseFloat); },
+      Ks(parts)       { material.specular       = parts.map(parseFloat); },
+      Ke(parts)       { material.emissive       = parts.map(parseFloat); },
+      Ni(parts)       { material.opticalDensity = parseFloat(parts[0]); },
+      d(parts)        { material.opacity        = parseFloat(parts[0]); },
+      illum(parts)    { material.illum          = parseInt(parts[0]); },
+      Tr(parts)       { material.transparency   = parseFloat(parts[0]); },
+      Tf(parts)       { material.transmissionFilter = parts.map(parseFloat); },
+      Pr(parts)       { material.roughness      = parseFloat(parts[0]); },
+      Pm(parts)       { material.metalness      = parseFloat(parts[0]); },
+      Pl(parts)       { material.sheen          = parseFloat(parts[0]); },
+      Pds(parts)      { material.dispersion     = parseFloat(parts[0]); },
+    };
+  
+    const keywordRE = /(\w*)(?: )*(.*)/;
+    const lines = text.split('\n');
+    for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
+      const line = lines[lineNo].trim();
+      if (line === '' || line.startsWith('#')) {
+        continue;
+      }
+      const m = keywordRE.exec(line);
+      if (!m) {
+        continue;
+      }
+      const [, keyword, unparsedArgs] = m;
+      const parts = line.split(/\s+/).slice(1);
+      const handler = keywords[keyword];
+      if (!handler) {
+        console.warn('unhandled keyword:', keyword);  // eslint-disable-line no-console
+        continue;
+      }
+      handler(parts, unparsedArgs);
+    }
+  
+    return materials;
+  }

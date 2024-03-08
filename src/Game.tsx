@@ -7,7 +7,7 @@ import VertexCode from './shader/base.vs.glsl?raw';
 import FragmentCode from './shader/base.fs.glsl?raw';
 import ModelObjRaw from './../resources/Spaceship.obj?raw';
 import ModelMtlRaw from './../resources/Spaceship.mtl?raw';
-import { compileShaderProgram } from "./Utility";
+import { compileShaderProgram, normalMatrix } from "./Utility";
 import { Matrix4, Vector3 } from "@math.gl/core";
 
 import ModelObjRawBullettracer from './../resources/LazerBullet.obj?raw';
@@ -26,9 +26,11 @@ export class Game {
 
     modelVBO: Array<WebGLVertexArrayObject>; 
     modelLength: Array<number>;
+    modelMaterials: Array<{}>;
 
     modelVBOBullet: WebGLVertexArrayObject;
     modelLengthBullet: number;
+    modelMaterialBullet: {};
 
     constructor(gl: WebGL2RenderingContext) {
         const obj = loadObj(gl, ModelObjRaw, ModelMtlRaw);
@@ -36,9 +38,11 @@ export class Game {
 
         this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
         this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
+        this.modelMaterials = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).materials]
 
         this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
         this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
+        this.modelMaterialBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).materials;
 
         this.entities = [];
 
@@ -48,7 +52,7 @@ export class Game {
         this.spawnAstroid();
         this.spawnAstroid();
 
-        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vbo, obj.iboLength / 3));
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vbo, obj.iboLength / 3, obj.materials));
     }
 
     shoot() {
@@ -57,14 +61,14 @@ export class Game {
 
         let destination = new Vector3(playerPos.pos.x, playerPos.pos.y, playerPos.pos.z - 50);
         
-        this.entities.push(new ent.Bullet(destination, this.modelVBOBullet, this.modelLengthBullet / 3));
+        this.entities.push(new ent.Bullet(destination, this.modelVBOBullet, this.modelLengthBullet / 3, this.modelMaterialBullet));
     }
 
     spawnAstroid() {
         let startPos = new Vector3(randomIntFromInterval(-10000,10000), randomIntFromInterval(-4000, 4000), randomIntFromInterval(-6000, -5000));
         let x = randomIntFromInterval(0, this.modelVBO.length - 1);
 
-        this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3));
+        this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3, this.modelMaterials[x]));
     }
 
     move(direction: string) { 
@@ -153,8 +157,8 @@ export class Game {
             });
 
         gl.useProgram(this.shaderID);
-        let projectionLoc = gl.getUniformLocation(this.shaderID, 'uProjection');
-        let modelViewLoc = gl.getUniformLocation(this.shaderID, 'uModelView');
+        let projectionLoc = gl.getUniformLocation(this.shaderID, 'uProjectionMatrix');
+        let modelViewLoc = gl.getUniformLocation(this.shaderID, 'uModelViewMatrix');
         gl.uniformMatrix4fv(projectionLoc, false, projMatrix);
 
         let copy = this.entities.slice();
@@ -176,13 +180,26 @@ export class Game {
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
             if (renderComp && positionComp) {
-                const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
+                const materialProps = renderComp.matirial;
 
+                const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
                 modelMatrix.multiplyRight(viewMatrix);
+
+                const normalMatrixPrivat = normalMatrix(modelMatrix);
+
+                const uMaterialDiffuseLoc = gl.getUniformLocation(this.shaderID, 'uMaterialDiffuse');
+                const matName = 'lambert2SG'; 
+                if(materialProps[matName] && 'diffuse' in materialProps[matName]) {
+                    const diffuse = materialProps[matName].diffuse;
+                    gl.uniform3fv(uMaterialDiffuseLoc, diffuse);
+                } else {
+                    console.error('Material oder Kd-Eigenschaft nicht gefunden:', matName);
+                }
                 
-                
+
                 gl.bindVertexArray(renderComp.vao);
                 gl.uniformMatrix4fv(modelViewLoc, false, modelMatrix);
+                gl.uniformMatrix3fv(gl.getUniformLocation(this.shaderID, 'uNormalMatrix'), false, normalMatrixPrivat);
                 // gl.drawArrays(gl.TRIANGLES, 0, renderComp.countTriangles);
                 gl.drawElements(gl.TRIANGLES, renderComp.countTriangles * 3, gl.UNSIGNED_INT, 0);
             }

@@ -11,5 +11,5 @@ export class VelocityComp implements Component {
 }
 
 export class RenderComp implements Component {
-    constructor(public vao: WebGLBuffer, public countTriangles: number) { }
+    constructor(public vao: WebGLBuffer, public countTriangles: number, public matirial: {}) { }
 }
