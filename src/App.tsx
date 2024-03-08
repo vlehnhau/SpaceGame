@@ -6,6 +6,7 @@ import PlanetFragmentShaderRaw from "./shader/Planet.fs.glsl?raw"
 import { Matrix4, Vector2, Vector3 } from '@math.gl/core';
 import { RangeSlider } from './ui/RangeSlider';
 import { UIPanel } from './ui/UIPanel';
+import Cookies from "js-cookie";
 
 type AppContext = {
     gl: WebGL2RenderingContext;
@@ -41,7 +42,7 @@ const drawScene = (context: AppContext) => {
 
     const projectionMatrix = new Matrix4().identity();
     projectionMatrix.setElement(1, 1, context.aspectRatio);
-    projectionMatrix.scale([context.zoom, context.zoom, context.zoom]);
+    projectionMatrix.scale([context.zoom, context.zoom, 1]);
 
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -131,7 +132,7 @@ async function createNoiseMap(gl: WebGL2RenderingContext, shaderProgram: WebGLPr
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, noiseMapImage);
     gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
@@ -145,13 +146,16 @@ const App = () => {
     const contextRef = React.useRef<AppContext>();
 
     const init = async () => {
-        const gl = canvas.current.getContext('webgl2', { antialias: true })
+        const gl = canvas.current.getContext('webgl2', { antialias: false })
         if (!gl) return;
 
         const planetShader = compileShaderProgram(gl, PlanetVertexShaderRaw, PlanetFragmentShaderRaw);
         const quadVAO = createQuadVAO(gl);
 
         const noiseMap = await createNoiseMap(gl, planetShader, "uNoiseMap");
+
+        const displacementFactor = parseFloat(Cookies.get("displacementFactor"));
+        const displacementExponent = parseFloat(Cookies.get("displacementExponent"));
 
         contextRef.current = {
             gl,
@@ -160,14 +164,14 @@ const App = () => {
             aspectRatio: 1.0,
             noiseMap: noiseMap,
 
-            displacementFactor: 0.6,
-            displacementExponent: 6.0,
+            displacementFactor: displacementFactor,
+            displacementExponent: displacementExponent,
 
             keyPressedMap: {},
             mousePos: null,
             mousePressed: false,
 
-            zoom: 1.0,
+            zoom: 1.4,
 
             cameraPos: new Vector3(2, 0, 0),
             cameraViewDirection: new Vector3(1, 0, 0).normalize(),
@@ -181,10 +185,10 @@ const App = () => {
 
         drawScene(contextRef.current);
 
-        setInterval(() => {
-            if (executeMovement(contextRef.current))
-                drawScene(contextRef.current);
-        }, 10);
+        // setInterval(() => {
+        //     if (executeMovement(contextRef.current))
+        //         drawScene(contextRef.current);
+        // }, 10);
 
         canvas.current.addEventListener('wheel', mouseWheel);
         canvas.current.addEventListener('mousedown', mouseDown);
@@ -195,7 +199,10 @@ const App = () => {
 
         window.addEventListener('resize', () => {
             if (resizeCanvas(canvas.current))
+            {
                 resizeViewport();
+                drawScene(contextRef.current);
+            }
         });
     }
 
@@ -242,9 +249,9 @@ const App = () => {
             ctx.cameraViewDirection.z = Math.cos(ctx.cameraPitch) * Math.sin(ctx.cameraYaw);
             ctx.cameraViewDirection.normalize();
 
-            // const xyDir = new Vector3(-Math.cos(ctx.cameraYaw), 0, Math.sin(ctx.cameraYaw));
+            const xyDir = new Vector3(-Math.cos(ctx.cameraYaw), 0, Math.sin(ctx.cameraYaw));
 
-            // ctx.cameraPos = xyDir.scale(-2);
+            ctx.cameraPos = xyDir.scale(-2);
             
             ctx.mousePos = newPos;
 
@@ -270,11 +277,12 @@ const App = () => {
 
     return (
         <div className='relative bg-white h-screen w-full'>
-            <canvas ref={canvas} className='w-full h-screen' onKeyDown={(e) => console.log("Hehe")}></canvas>
+            <canvas ref={canvas} className='w-full h-screen'></canvas>
             
-            <UIPanel>
+            <UIPanel noExpand={true}>
                 Displacement Factor:
                 <RangeSlider 
+                    cookieName="displacementFactor"
                     value={0.6}
                     min={0}
                     max={3}
@@ -286,7 +294,8 @@ const App = () => {
                 </RangeSlider>   
                 Displacement Exponent:
                 <RangeSlider 
-                    value={6}
+                    cookieName="displacementExponent"
+                    value={6.0}
                     min={1}
                     max={10}
                     step={0.05}
