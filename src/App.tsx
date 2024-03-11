@@ -280,7 +280,7 @@ const App = () => {
             <canvas ref={canvas} className='w-full h-screen'></canvas>
             
             <UIPanel noExpand={true}>
-                Displacement Factor:
+                Terrain Displacement Factor:
                 <RangeSlider 
                     cookieName="displacementFactor"
                     value={0.6}
@@ -292,7 +292,7 @@ const App = () => {
                         drawScene(contextRef.current);
                     }}>
                 </RangeSlider>   
-                Displacement Exponent:
+                Terrain Displacement Exponent:
                 <RangeSlider 
                     cookieName="displacementExponent"
                     value={6.0}

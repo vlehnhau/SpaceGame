@@ -19,7 +19,7 @@ const vec3 SUNLIGHT_DIR = normalize(vec3(0.2f, 0.6f, 0.5f));
 const float SPHERE_RADIUS = 0.5f;
 
 // Variables configuring the look of the ocean
-const float OCEAN_DEPTH = 0.02f;
+const float OCEAN_DEPTH = 0.01f;
 const float OCEAN_DEPTH_FACTOR = 80.0;
 const float OCEAN_ALPHA_FACTOR = 420.0;
 const vec3 LIGHT_OCEAN_COLOR = vec3(0.0f, 0.55f, 0.97f);
@@ -28,30 +28,7 @@ const vec3 DEEP_OCEAN_COLOR  = vec3(0.04f, 0.01f, 0.27f);
 const float PI = 3.14159265358f;
 const float INFINITY = 69696969696969696969696969.0;
 
-vec3 calcTerrainPosAtUV(vec2 uv) {
-    float azimut = (uv.y - 0.5) * PI;
-    float polarAngle = (uv.y - 0.5) * PI * 2.0;
-
-    vec3 pos = vec3(cos(azimut) * sin(polarAngle),
-                    sin(azimut),
-                    cos(azimut) * cos(polarAngle));
-
-    return pos * pow(texture(uNoiseMap, uv).r * uDisplacementFactor, uDisplacementExponent);
-}
-
-void sdSPhereWithNoiseNormal(vec2 uv, out vec3 normal) {
-    vec2 texelSize = 1.0f / vec2(textureSize(uNoiseMap, 0));
-
-    vec3 uDiff = calcTerrainPosAtUV(uv + vec2(texelSize.x, 0.0)) - calcTerrainPosAtUV(uv - vec2(texelSize.x, 0.0));
-    vec3 vDiff = calcTerrainPosAtUV(uv + vec2(0.0, texelSize.y)) - calcTerrainPosAtUV(uv - vec2(0.0, texelSize.y));
-
-    if (uDiff == vec3(0.0) || vDiff == vec3(0.0))
-        normal = vec3(0.0);
-    else
-        normal = cross(normalize(uDiff), normalize(vDiff));
-}
-
-float sdSphereWithNoise(vec3 p, float s, out float terrainDisplacement, out vec3 normal) {
+float sdSphereWithNoise(vec3 p, float s, out float terrainDisplacement) {
     float sdfSphereVal = length(p) - s;
 
     // The current position on a unit sphere
@@ -63,43 +40,38 @@ float sdSphereWithNoise(vec3 p, float s, out float terrainDisplacement, out vec3
     terrainDisplacement *= uDisplacementFactor;
     terrainDisplacement = pow(terrainDisplacement, uDisplacementExponent);
 
-    sdSPhereWithNoiseNormal(uv, normal);
-    if (normal == vec3(0.0))
-        normal = unitP;
-    
     return sdfSphereVal - terrainDisplacement;
 }
 
-float sdf(vec3 pos, out float terrainDisplacement, out vec3 normal) {
-    return sdSphereWithNoise(pos, SPHERE_RADIUS, terrainDisplacement, normal);
+float sdf(vec3 pos, out float terrainDisplacement) {
+    return sdSphereWithNoise(pos, SPHERE_RADIUS, terrainDisplacement);
 }
 
+vec3 calcSDFNormal(in vec3 p) {
+    const float eps = 0.00001f; // or some other value
+    const vec2 h = vec2(eps, 0);
+    float terrainDisplacement;
+    return normalize(vec3(sdf(p + h.xyy, terrainDisplacement) - sdf(p - h.xyy, terrainDisplacement), 
+                          sdf(p + h.yxy, terrainDisplacement) - sdf(p - h.yxy, terrainDisplacement), 
+                          sdf(p + h.yyx, terrainDisplacement) - sdf(p - h.yyx, terrainDisplacement)));
+}
 
-// vec3 calcSDFNormal(in vec3 p) {
-//     const float eps = 0.00001f; // or some other value
-//     const vec2 h = vec2(eps, 0);
-//     float terrainDisplacement;
-//     return normalize(vec3(sdf(p + h.xyy, terrainDisplacement) - sdf(p - h.xyy, terrainDisplacement), 
-//                           sdf(p + h.yxy, terrainDisplacement) - sdf(p - h.yxy, terrainDisplacement), 
-//                           sdf(p + h.yyx, terrainDisplacement) - sdf(p - h.yyx, terrainDisplacement)));
-// }
+void calcTerrainColor(vec3 currentPos, float terrainDisplacement, out vec3 color) {
+    vec3 normal = calcSDFNormal(currentPos);
 
-void calcTerrainColor(vec3 currentPos, vec3 normal, float terrainDisplacement, out vec3 color) {
+    // Blinn-Phong model
     float diffuse = clamp(dot(normal, SUNLIGHT_DIR), 0.0f, 1.0f);
     float ambient = 0.5f + 0.5f * dot(normal, SUNLIGHT_DIR);
     vec3 halfwaySpecVec = SUNLIGHT_DIR + normalize(currentPos - uEyeWorldPos);
     halfwaySpecVec = normalize(halfwaySpecVec);
     float specular = pow(max(dot(halfwaySpecVec, normal), 0.0), 32.0);
 
-    vec3 upDir = normalize(currentPos);
-    float steepness = 1.0 - dot(normal, upDir);
-    steepness = clamp(steepness / 0.6, 0.0, 1.0);
-    // float steepness = terrainDisplacement / (pow(uDisplacementFactor, uDisplacementExponent));
+    float normalizedTerrainDisplacement = terrainDisplacement / (pow(uDisplacementFactor, uDisplacementExponent));
 
-    if (steepness <= 0.5) {
+    if (normalizedTerrainDisplacement <= 0.3) {
         color = vec3(0.42f, 0.77f, 0.11f);
     }
-    else if (steepness <= 0.75) {
+    else if (normalizedTerrainDisplacement <= 0.5) {
         color = vec3(0.33f, 0.28f, 0.28f);
     }
     else {
@@ -107,8 +79,6 @@ void calcTerrainColor(vec3 currentPos, vec3 normal, float terrainDisplacement, o
     }
 
     color = color * (ambient + diffuse + specular);
-
-    color = normal;
 }
 
 // From https://youtu.be/lctXaT9pxA0?si=YdBNYSMocZimnVDZ&t=951
@@ -160,12 +130,11 @@ void main() {
     vec3 currentPos = uEyeWorldPos;
     
     float terrainDisplacement;
-    vec3 normal;
 
     while(true) {
         steps++;
 
-        float nearestDist = sdf(currentPos, terrainDisplacement, normal);
+        float nearestDist = sdf(currentPos, terrainDisplacement);
 
         currentPos += stepDirection * nearestDist;
 
@@ -175,12 +144,12 @@ void main() {
         }
 
         if(nearestDist <= MIN_DIST) {
-            calcTerrainColor(currentPos, normal, terrainDisplacement, color);
+            calcTerrainColor(currentPos, terrainDisplacement, color);
             break;
         }
     }
 
-    // calcOceanColor(currentPos, stepDirection, color);
+    calcOceanColor(currentPos, stepDirection, color);
 
     fColor = vec4(color, 1.0f);
 }
