@@ -64,7 +64,7 @@ const drawScene = (context: AppContext) => {
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 }
 
-// Returns if the camera has moved
+// Returns true if the camera moved
 const executeMovement = (context: AppContext): boolean => {
     const oldCameraPos = new Vector3(context.cameraPos);
 
