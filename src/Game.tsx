@@ -158,6 +158,8 @@ export class Game {
 
 
                     rotationComp.rotFuture = rotationComp.rotFuture.multiplyByScalar(0.85);
+                } else if (entity instanceof ent.Asteroid) {
+                    rotationComp.rot = new Vector3().addVectors(rotationComp.rot, rotationComp.rotFuture);
                 }
             }
 
@@ -183,82 +185,63 @@ export class Game {
         }
     }
 
-
-
     draw(gl: WebGL2RenderingContext) {
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LESS);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
         let near = 0.1;
         let far = 10000;
-
         let aspect = gl.canvas.width / gl.canvas.height;
-
-        const projMatrix = new Matrix4().perspective(
-            {
-                fovy: 80 * Math.PI / 180,
-                aspect: aspect,
-                near: near,
-                far: far
-            });
-
-        const viewMatrix = new Matrix4().lookAt(
-            {
-                eye: new Vector3(0, 0, -400),
-                center: new Vector3(0, 0, -300),
-                up: new Vector3(0, 1, 0)
-            });
-
+    
+        const projMatrix = new Matrix4().perspective({
+            fovy: 80 * Math.PI / 180,
+            aspect: aspect,
+            near: near,
+            far: far
+        });
+    
+        const viewMatrix = new Matrix4().lookAt({
+            eye: new Vector3(0, 0, -400),
+            center: new Vector3(0, 0, -300),
+            up: new Vector3(0, 1, 0)
+        });
+    
         gl.useProgram(this.shaderID);
         let projectionLoc = gl.getUniformLocation(this.shaderID, 'uProjectionMatrix');
         let modelViewLoc = gl.getUniformLocation(this.shaderID, 'uModelViewMatrix');
+    
         gl.uniformMatrix4fv(projectionLoc, false, projMatrix);
-
-        let copy = this.entities.slice();
-        copy.sort((entityA, entityB) => {
-            const positionCompA = entityA.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
-            const positionCompB = entityB.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
-
-            if (positionCompA && positionCompB) {
-                return positionCompA.pos.z - positionCompB.pos.z;
-            } else if (positionCompA) {
-                return positionCompA.pos.z
-            } else if (positionCompB) {
-                return positionCompB.pos.z
-            } 
-        })
-
-        copy.forEach(entity => {
+    
+        this.entities.forEach(entity => {
             const renderComp = entity.components.find(component => component instanceof comp.RenderComp) as comp.RenderComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
-            const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
             
-            if (renderComp && positionComp) {
-                renderComp.voaMatInfo.forEach(phase => {
-                    const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
-
-                    if (rotationComp) {
-                        viewMatrix.rotateX(rotationComp.rot.x);
-                        viewMatrix.rotateY(rotationComp.rot.y);
-                        viewMatrix.rotateZ(rotationComp.rot.z);
-                    }
-
-                    const materialProps = phase.material;
-
-                    const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
-                    modelMatrix.multiplyRight(viewMatrix);
-
-                    const normalMatrixPrivat = normalMatrix(modelMatrix);
-
-                    const uMaterialDiffuseLoc = gl.getUniformLocation(this.shaderID, 'uMaterialDiffuse');
-                    
-                    gl.uniform3fv(uMaterialDiffuseLoc, materialProps.diffuse);
-
-                    gl.bindVertexArray(phase.vao);
-                    gl.uniformMatrix4fv(modelViewLoc, false, modelMatrix);
-                    gl.uniformMatrix3fv(gl.getUniformLocation(this.shaderID, 'uNormalMatrix'), false, normalMatrixPrivat);
-                    // gl.drawArrays(gl.TRIANGLES, 0, renderComp.countTriangles);
-                    gl.drawElements(gl.TRIANGLES, phase.iboLength, gl.UNSIGNED_INT, 0);
-            
-                });
-            }
+            renderComp.voaMatInfo.forEach(phase => {
+                const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
+    
+                let modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
+    
+                if (rotationComp) {
+                    modelMatrix.rotateX(-rotationComp.rot.x); 
+                    modelMatrix.rotateY(-rotationComp.rot.y); 
+                    modelMatrix.rotateZ(-rotationComp.rot.z); 
+                }                
+    
+                let modelViewMatrix = viewMatrix.clone().multiplyLeft(modelMatrix);
+    
+                const materialProps = phase.material;
+                const uMaterialDiffuseLoc = gl.getUniformLocation(this.shaderID, 'uMaterialDiffuse');
+                
+                gl.uniform3fv(uMaterialDiffuseLoc, materialProps.diffuse);
+                gl.bindVertexArray(phase.vao);
+                gl.uniformMatrix4fv(modelViewLoc, false, modelViewMatrix);
+                let normalMatrixPrivat = normalMatrix(modelViewMatrix);
+                gl.uniformMatrix3fv(gl.getUniformLocation(this.shaderID, 'uNormalMatrix'), false, normalMatrixPrivat);
+                gl.drawElements(gl.TRIANGLES, phase.iboLength, gl.UNSIGNED_INT, 0);
+            });
         });
     }
+    
 }

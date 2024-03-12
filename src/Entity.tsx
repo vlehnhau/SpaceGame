@@ -44,7 +44,10 @@ export class Asteroid implements Entity {
         velVec.normalize()
         velVec = velVec.multiplyByScalar(3)
 
-        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vaoMatInfo), new comp.VelocityComp(velVec), new comp.MaxRadius(vertexPositions)];
+        let rotValX = randomIntFromInterval(-5, 5) / 2000;
+        let rotValY = randomIntFromInterval(-5, 5) / 2000;
+        let rotValZ = randomIntFromInterval(-5, 5) / 2000;
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vaoMatInfo), new comp.VelocityComp(velVec), new comp.MaxRadius(vertexPositions), new comp.RotationComp(new Vector3(0),new Vector3(rotValX,rotValY,rotValZ))];
     }
 }
 
