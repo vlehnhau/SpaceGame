@@ -23,5 +23,5 @@ void main() {
 
     vec3 result = diffuse + ambient;
     
-    fColor = vec4(norm, 1.0);
+    fColor = vec4(result, 1.0);
 }

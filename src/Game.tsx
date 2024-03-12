@@ -1,6 +1,7 @@
 import * as comp from "./Components";
 import * as ent from "./Entity";
 import { loadObj } from "./ObjLoader";
+import { VaoMaterialInfo, exportObjLoader } from "./ObjLoader";
 
 
 import VertexCode from './shader/base.vs.glsl?raw';
@@ -25,6 +26,10 @@ export class Game {
     entities: Array<ent.Entity>;
     shaderID: WebGLProgram;
 
+    objListAsteroids: Array<exportObjLoader>;
+
+    objBullet: exportObjLoader;
+
     modelVBO: Array<WebGLVertexArrayObject>; 
     modelLength: Array<number>;
     modelMaterials: Array<{}>;
@@ -35,27 +40,22 @@ export class Game {
     modelMaterialBullet: {};
 
     constructor(gl: WebGL2RenderingContext) {
-        const obj = loadObj(gl, ModelObjRaw, ModelMtlRaw)[0];
+        const objSpaceship = loadObj(gl, ModelObjRaw, ModelMtlRaw);
         this.shaderID = compileShaderProgram(gl, VertexCode, FragmentCode);
 
-        // this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
-        // this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
-        // this.modelMaterials = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).materials]
-        
-        // this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
-        // this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
-        // this.modelMaterialBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).materials;
+        this.objListAsteroids = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne)];
+
+        this.objBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer);
 
         this.entities = [];
 
-        // this.spawnAstroid();
-        // this.spawnAstroid();
-        // this.spawnAstroid();
-        // this.spawnAstroid();
-        // this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
+        this.spawnAstroid();
 
-
-        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vao, obj.iboLength, obj.material, obj.vertexPositions));
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), objSpaceship.vaoInfos, objSpaceship.vertexPositions));
     }
 
     shoot() {
@@ -64,14 +64,14 @@ export class Game {
 
         let destination = new Vector3(playerPos.pos.x, playerPos.pos.y, playerPos.pos.z - 50);
         
-        this.entities.push(new ent.Bullet(destination, this.modelVBOBullet, this.modelLengthBullet / 3, this.modelMaterialBullet));
+        this.entities.push(new ent.Bullet(destination, this.objBullet.vaoInfos));
     }
 
     spawnAstroid() {
         let startPos = new Vector3(randomIntFromInterval(-10000,10000), randomIntFromInterval(-4000, 4000), randomIntFromInterval(-6000, -5000));
-        let x = randomIntFromInterval(0, this.modelVBO.length - 1);
+        let x = randomIntFromInterval(0, this.objListAsteroids.length - 1);
 
-        this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3, this.modelMaterials[x], this.modelVertices[x]));
+        this.entities.push(new ent.Asteroid(startPos, this.objListAsteroids[x].vaoInfos, this.objListAsteroids[x].vertexPositions));
     }
 
     move(direction: string) { 
@@ -229,30 +229,35 @@ export class Game {
             const renderComp = entity.components.find(component => component instanceof comp.RenderComp) as comp.RenderComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
             const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
-
+            
             if (renderComp && positionComp) {
-                const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
+                renderComp.voaMatInfo.forEach(phase => {
+                    const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
 
-                viewMatrix.rotateX(rotationComp.rot.x);
-                viewMatrix.rotateY(rotationComp.rot.y);
-                viewMatrix.rotateZ(rotationComp.rot.z);
+                    if (rotationComp) {
+                        viewMatrix.rotateX(rotationComp.rot.x);
+                        viewMatrix.rotateY(rotationComp.rot.y);
+                        viewMatrix.rotateZ(rotationComp.rot.z);
+                    }
 
-                const materialProps = renderComp.material;
+                    const materialProps = phase.material;
 
-                const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
-                modelMatrix.multiplyRight(viewMatrix);
+                    const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
+                    modelMatrix.multiplyRight(viewMatrix);
 
-                const normalMatrixPrivat = normalMatrix(modelMatrix);
+                    const normalMatrixPrivat = normalMatrix(modelMatrix);
 
-                const uMaterialDiffuseLoc = gl.getUniformLocation(this.shaderID, 'uMaterialDiffuse');
-                
-                gl.uniform3fv(uMaterialDiffuseLoc, materialProps.diffuse);
+                    const uMaterialDiffuseLoc = gl.getUniformLocation(this.shaderID, 'uMaterialDiffuse');
+                    
+                    gl.uniform3fv(uMaterialDiffuseLoc, materialProps.diffuse);
 
-                gl.bindVertexArray(renderComp.vao);
-                gl.uniformMatrix4fv(modelViewLoc, false, modelMatrix);
-                gl.uniformMatrix3fv(gl.getUniformLocation(this.shaderID, 'uNormalMatrix'), false, normalMatrixPrivat);
-                // gl.drawArrays(gl.TRIANGLES, 0, renderComp.countTriangles);
-                gl.drawElements(gl.TRIANGLES, renderComp.countTriangles, gl.UNSIGNED_INT, 0);
+                    gl.bindVertexArray(phase.vao);
+                    gl.uniformMatrix4fv(modelViewLoc, false, modelMatrix);
+                    gl.uniformMatrix3fv(gl.getUniformLocation(this.shaderID, 'uNormalMatrix'), false, normalMatrixPrivat);
+                    // gl.drawArrays(gl.TRIANGLES, 0, renderComp.countTriangles);
+                    gl.drawElements(gl.TRIANGLES, phase.iboLength, gl.UNSIGNED_INT, 0);
+            
+                });
             }
         });
     }
