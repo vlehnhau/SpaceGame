@@ -16,7 +16,7 @@ export class Player implements Entity {
 
     constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: Material, vertexPositions: number[]) {
         this.newPos = new Vector3(pos.x, pos.y, pos.z);
-        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial), new comp.MaxRadius(vertexPositions)];
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial), new comp.MaxRadius(vertexPositions), new comp.RotationComp()];
     }
 
     InitiatePlayerMove(newPos: Vector3) {

@@ -81,15 +81,19 @@ export class Game {
         switch(direction) {
             case 'left':
                 newPos = new Vector3(player.newPos.x - 100, player.newPos.y, player.newPos.z);
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.z += -0.005
                 break;
             case 'right':
                 newPos = new Vector3(player.newPos.x + 100, player.newPos.y, player.newPos.z);
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.z += 0.005
                 break;
             case 'up':
                 newPos = new Vector3(player.newPos.x, player.newPos.y + 100, player.newPos.z);
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.x += -0.005
                 break;
             case 'down':
                 newPos = new Vector3(player.newPos.x, player.newPos.y - 100, player.newPos.z);
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.x += 0.005
                 break;
         }
 
@@ -108,16 +112,19 @@ export class Game {
             player.InitiatePlayerMove(new Vector3(newPos.x, -borderY + 1, pos.z));
         } else {
             player.InitiatePlayerMove(newPos)
-        }
+        } // ToDo: Eckpunkte müssen noch eingebunden werden und an ration anpassen
+
+        (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).activity = true;        
     }
 
     autoMove() {
         this.entities.forEach(entity => {
             const velocityComp = entity.components.find(component => component instanceof comp.VelocityComp) as comp.VelocityComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+            const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
 
             if (velocityComp && positionComp) {
-                positionComp.pos = new Vector3().add(velocityComp.vel, positionComp.pos);
+                positionComp.pos = new Vector3().add(velocityComp.vel, positionComp.pos );
 
                 if (entity instanceof ent.Asteroid && positionComp.pos.z > 500) {
                     this.entities.splice(this.entities.indexOf(entity), 1);
@@ -127,11 +134,30 @@ export class Game {
                 } else if(entity instanceof ent.Player) {
                     let vel = (entity.components.find(componentVel => componentVel instanceof comp.VelocityComp) as comp.VelocityComp).vel
 
-                    if (vel === new Vector3(0)) { 
-                        vel = positionComp.pos;
-                    } else {
-                        vel = vel.multiplyByScalar(0.99);
+                    vel = vel.multiplyByScalar(0.99);
+
+                    if(vel.x <= 2 && vel.x >= -2 && vel.y <= 2 && vel.y >= -2 && vel.z <= 2 && vel.z >= -2) {
+                        rotationComp.activity = false;
                     }
+
+                    if (rotationComp.activity){
+                        if(rotationComp.rot.x <= 0.2 && rotationComp.rotFuture.x >= 0) {
+                            rotationComp.rot.x = rotationComp.rot.x + rotationComp.rotFuture.x;
+                        } else if (rotationComp.rot.x >= -0.2 && rotationComp.rotFuture.x <= 0) {
+                            rotationComp.rot.x = rotationComp.rot.x + rotationComp.rotFuture.x;
+                        }
+        
+                        if(rotationComp.rot.z <= 1 && rotationComp.rotFuture.z >= 0) {
+                            rotationComp.rot.z = rotationComp.rot.z + rotationComp.rotFuture.z;
+                        } else if (rotationComp.rot.z >= -1 && rotationComp.rotFuture.z <= 0) {
+                            rotationComp.rot.z = rotationComp.rot.z + rotationComp.rotFuture.z;
+                        }
+                    } else {
+                        rotationComp.rot = rotationComp.rot.multiplyByScalar(0.99);
+                    }
+
+
+                    rotationComp.rotFuture = rotationComp.rotFuture.multiplyByScalar(0.85);
                 }
             }
 
@@ -202,8 +228,15 @@ export class Game {
         copy.forEach(entity => {
             const renderComp = entity.components.find(component => component instanceof comp.RenderComp) as comp.RenderComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+            const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
 
             if (renderComp && positionComp) {
+                const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
+
+                viewMatrix.rotateX(rotationComp.rot.x);
+                viewMatrix.rotateY(rotationComp.rot.y);
+                viewMatrix.rotateZ(rotationComp.rot.z);
+
                 const materialProps = renderComp.material;
 
                 const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);

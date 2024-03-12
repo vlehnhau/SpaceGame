@@ -15,6 +15,10 @@ export class RenderComp implements Component {
     constructor(public vao: WebGLBuffer, public countTriangles: number, public material: Material) { }
 }
 
+export class RotationComp implements Component {
+    constructor(public rot: Vector3 = new Vector3(0), public rotFuture: Vector3 = new Vector3(0), public activity: Boolean = false) { }
+}
+
 export class MaxRadius implements Component {
     public maxRadius: number
     constructor(vertexPositions: Array<number>) {
