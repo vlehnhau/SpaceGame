@@ -7,20 +7,18 @@ export const RangeSlider = (props: {
     min: number,
     max: number,
     step: number,
-    onChange: (value: number) => void
+    onChange: (value: number) => void,
+    inputRef?: React.RefObject<HTMLInputElement>
 }) => {
-    let defaultValue = props.value;
-    if (props.cookieName) {
-        defaultValue = parseFloat(Cookies.get(props.cookieName));
-    }
     return (
         <input
+            ref={props.inputRef}
             className="w-full"
             type='range'
             min={props.min}
             max={props.max}
             step={props.step}
-            defaultValue={defaultValue}
+            defaultValue={parseFloat(Cookies.get(props.cookieName) ?? props.value.toString())}
             onChange={e => {
                 props.onChange(e.target.valueAsNumber);
                 Cookies.set(props.cookieName, e.target.valueAsNumber.toString());

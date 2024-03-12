@@ -3,6 +3,7 @@ precision mediump float;
 
 uniform vec3 uEyeWorldPos;
 uniform sampler2D uNoiseMap;
+uniform samplerCube uCubeBackground;
 
 uniform float uDisplacementFactor;
 uniform float uDisplacementExponent;
@@ -12,14 +13,15 @@ in vec3 vFragmentPos;
 out vec4 fColor;
 
 const int MAX_STEPS = 100;
-const float BAILOUT_DIST = 10.0f;
+const float BAILOUT_DIST = 100.0f;
 const float MIN_DIST = 0.0001f;
 
-const vec3 SUNLIGHT_DIR = normalize(vec3(0.2f, 0.6f, 0.5f));
+// const vec3 SUNLIGHT_DIR = normalize(vec3(0.2f, 0.6f, 0.5f));
+const vec3 SUN_POSITION = vec3(0.0, 0.0, 1.0) * 100.0;
 const float SPHERE_RADIUS = 0.5f;
 
 // Variables configuring the look of the ocean
-const float OCEAN_DEPTH = 0.01f;
+const float OCEAN_DEPTH = 0.02f;
 const float OCEAN_DEPTH_FACTOR = 80.0f;
 const float OCEAN_ALPHA_FACTOR = 420.0f;
 const vec3 LIGHT_OCEAN_COLOR = vec3(0.0f, 0.55f, 0.97f);
@@ -29,11 +31,30 @@ const vec3 DEEP_OCEAN_COLOR  = vec3(0.04f, 0.01f, 0.27f);
 const float ATMOSPHERE_SPHERE_RADIUS = SPHERE_RADIUS + 0.2f;
 const float IN_SCATTER_LIGHT_SAMPLE_POINTS_COUNT = 20.0f;
 const float OPTICAL_DEPTH_SAMPLE_POINTS_COUNT = 20.0f;
-const float ATMOSPHERE_DENSITY_FALLOFF = 5.0;
+const float ATMOSPHERE_DENSITY_FALLOFF = 7.0;
 const float LIGHT_SCATTERING_STRENGTH = 20.0;
 const vec3 LIGTH_SCATTERING_COEFFICIENTS = vec3(pow(400.0 / 700.0, 4.0) * LIGHT_SCATTERING_STRENGTH,
                                                 pow(400.0 / 530.0, 4.0) * LIGHT_SCATTERING_STRENGTH,
                                                 pow(400.0 / 440.0, 4.0) * LIGHT_SCATTERING_STRENGTH);
+
+// Variables configuring the look of the terrain
+const int TERRAIN_COLORS_COUNT = 5;
+const vec3 TERRAIN_COLORS[TERRAIN_COLORS_COUNT] = vec3[](
+    vec3(1.0,  1.0,  1.0), // bottom of the sea
+    vec3(1.0,  0.8,  0.34), // beach
+    vec3(0.5,  1.0,  0.0), // grass
+    vec3(0.15, 0.15, 0.15), // mountains
+    vec3(1.0,  1.0,  1.0) // top of the mountains
+);
+
+const float TERRAIN_COLORS_HEIGHTS[TERRAIN_COLORS_COUNT - 1] = float[](
+    0.05,
+    0.2f,
+    0.3f,
+    0.2f
+);
+
+const float TERRAIN_COLOR_TRANSITION_COEFF = 1.0f;
 
 const float PI = 3.14159265358f;
 const float FLOAT_MAX = 16384.0f;
@@ -59,7 +80,7 @@ vec2 raySphereIntersection(vec3 center, float radius, vec3 rayOrigin, vec3 rayDi
     return vec2(FLOAT_MAX, 0.0);
 }
 
-float sdSphereWithNoise(vec3 p, float s, out float terrainDisplacement) {
+float sdfSphereWithNoise(vec3 p, float s, out float terrainDisplacement) {
     float sdfSphereVal = length(p) - s;
 
     // The current position on a unit sphere
@@ -75,7 +96,7 @@ float sdSphereWithNoise(vec3 p, float s, out float terrainDisplacement) {
 }
 
 float sdf(vec3 pos, out float terrainDisplacement) {
-    return sdSphereWithNoise(pos, SPHERE_RADIUS, terrainDisplacement);
+    return sdfSphereWithNoise(pos, SPHERE_RADIUS, terrainDisplacement);
 }
 
 vec3 calcSDFNormal(in vec3 p) {
@@ -87,48 +108,76 @@ vec3 calcSDFNormal(in vec3 p) {
                           sdf(p + h.yyx, terrainDisplacement) - sdf(p - h.yyx, terrainDisplacement)));
 }
 
-void calcTerrainColor(vec3 currentPos, float terrainDisplacement, out vec3 color) {
-    vec3 normal = calcSDFNormal(currentPos);
-
-    // Blinn-Phong model
-    float diffuse = clamp(dot(normal, SUNLIGHT_DIR), 0.0f, 1.0f);
-    float ambient = 0.5f + 0.5f * dot(normal, SUNLIGHT_DIR);
-    vec3 halfwaySpecVec = SUNLIGHT_DIR + normalize(currentPos - uEyeWorldPos);
-    halfwaySpecVec = normalize(halfwaySpecVec);
-    float specular = pow(max(dot(halfwaySpecVec, normal), 0.0), 32.0);
-
+void calcTerrainColor(float terrainDisplacement, out vec3 color) {
     float normalizedTerrainDisplacement = terrainDisplacement / (pow(uDisplacementFactor, uDisplacementExponent));
+    float normalizedOceanHeight = OCEAN_DEPTH / (pow(uDisplacementFactor, uDisplacementExponent));
+    
+    float currentHeight = normalizedOceanHeight;
 
-    if (normalizedTerrainDisplacement <= 0.3) {
-        color = vec3(0.42f, 0.77f, 0.11f);
-    }
-    else if (normalizedTerrainDisplacement <= 0.5) {
-        color = vec3(0.33f, 0.28f, 0.28f);
-    }
-    else {
-        color = vec3(1.0);
-    }
+    for(int i = 0; i < TERRAIN_COLORS_COUNT - 1; i++) {
+        
+        if (normalizedTerrainDisplacement <= currentHeight || 
+            i == TERRAIN_COLORS_COUNT - 2) {
+            float currentTransitionDiff = TERRAIN_COLORS_HEIGHTS[i] * TERRAIN_COLOR_TRANSITION_COEFF;
 
-    color = color * (ambient + diffuse + specular);
-}
+            color = TERRAIN_COLORS[i] * smoothstep(currentHeight + currentTransitionDiff,
+                                                    currentHeight - currentTransitionDiff,
+                                                    normalizedTerrainDisplacement)
+                                                    +
+                    TERRAIN_COLORS[i + 1] * smoothstep(currentHeight - currentTransitionDiff,
+                                                       currentHeight + currentTransitionDiff,
+                                                       normalizedTerrainDisplacement);
+            break;
+        }
 
-void calcOceanColor(vec3 currentPos, vec3 stepDirection, out vec3 color) {
+        currentHeight += TERRAIN_COLORS_HEIGHTS[i];
+    }
+}   
+
+// Returns true if the ocean was hit by the ray
+bool calcOceanColor(vec3 currentPos, vec3 rayDirection, out vec3 color, out vec3 normal, out vec3 oceanHitPos) {
     float sceneDepth = length(currentPos - uEyeWorldPos);
 
-    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, stepDirection);
+    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, rayDirection);
     float distanceToOcean = oceanSphereHitInfo.x;
     float distanceThroughOcean = oceanSphereHitInfo.y;
     float oceanViewDepth = min(distanceThroughOcean, sceneDepth - distanceToOcean);
 
-    if (oceanViewDepth > 0.0) {
-        // Interpolating between the deep and light ocean color 
-        float opticalDepth = 1.0 - exp(-oceanViewDepth * OCEAN_DEPTH_FACTOR);
-        vec3 oceanColor    = mix(LIGHT_OCEAN_COLOR, DEEP_OCEAN_COLOR, opticalDepth);
-        
-        // Interpolating between the terrain color and the calculated ocean color 
-        float alpha = 1.0 - exp(-oceanViewDepth * OCEAN_ALPHA_FACTOR);
-        color = mix(color, oceanColor, alpha);
-    }
+    if (oceanViewDepth <= 0.0) 
+        return false;
+    
+    // Interpolating between the deep and light ocean color 
+    float opticalDepth = 1.0 - exp(-oceanViewDepth * OCEAN_DEPTH_FACTOR);
+    vec3 oceanColor    = mix(LIGHT_OCEAN_COLOR, DEEP_OCEAN_COLOR, opticalDepth);
+    
+    // Interpolating between the terrain color and the calculated ocean color 
+    float alpha = 1.0 - exp(-oceanViewDepth * OCEAN_ALPHA_FACTOR);
+    color = mix(color, oceanColor, alpha);
+
+    oceanHitPos = uEyeWorldPos + rayDirection * distanceToOcean;
+    normal = normalize(oceanHitPos);
+    return true;
+}
+
+void applyBlinnPhongLighting(vec3 currentPos, vec3 normal, float shininess, out vec3 color) {
+    vec3 lightDir = normalize(currentPos - SUN_POSITION);
+
+    vec3 viewDir = normalize(currentPos - uEyeWorldPos);
+    
+    float attInput = length(normalize(SUN_POSITION - currentPos));
+    float attenuation = 0.8 / (1.0f + 0.1f * attInput + 0.01f * attInput * attInput);
+
+    // diffuse light 
+    float diffuse = max(dot(normal, -lightDir), 0.0f);
+
+    // specular light
+    vec3 halfwayVec = normalize(lightDir + viewDir);
+    float specular = pow(max(dot(normal, -halfwayVec), 0.0f), shininess * 2.0f);
+
+    // ambient light
+    float ambient = 0.2f;
+
+    color *= ambient + (diffuse + specular) * attenuation;
 }
 
 float calcAtmosphereDensityAtPoint(vec3 densitySamplePoint) {
@@ -152,7 +201,7 @@ float calcAtmosphereOpticalDepth(vec3 rayOrigin, vec3 rayDirection, float rayLen
     return opticalDepth;
 }
 
-vec3 calcScatteredAtmosphereLight(vec3 rayOrigin, vec3 rayDirection, float rayLength, vec3 color) {
+vec3 calcScatteredAtmosphereLight(vec3 rayOrigin, vec3 rayDirection, float rayLength, vec3 color) {   
     vec3 currentRayPos = rayOrigin;
     float stepSize = rayLength / (IN_SCATTER_LIGHT_SAMPLE_POINTS_COUNT - 1.0);
     vec3 inScatteredLight = vec3(0.0f);
@@ -160,8 +209,9 @@ vec3 calcScatteredAtmosphereLight(vec3 rayOrigin, vec3 rayDirection, float rayLe
     float viewRayOpticalDepth;
 
     for(float i = 0.0f; i < IN_SCATTER_LIGHT_SAMPLE_POINTS_COUNT; i++) {
-        float sunRayLength = raySphereIntersection(vec3(0.0), ATMOSPHERE_SPHERE_RADIUS, currentRayPos, SUNLIGHT_DIR).y;
-        float sunRayOpticalDepth = calcAtmosphereOpticalDepth(currentRayPos, SUNLIGHT_DIR, sunRayLength);
+        vec3 sunlightDir = normalize(SUN_POSITION - currentRayPos);
+        float sunRayLength = raySphereIntersection(vec3(0.0), ATMOSPHERE_SPHERE_RADIUS, currentRayPos, sunlightDir).y;
+        float sunRayOpticalDepth = calcAtmosphereOpticalDepth(currentRayPos, sunlightDir, sunRayLength);
         viewRayOpticalDepth = calcAtmosphereOpticalDepth(currentRayPos, -rayDirection, stepSize * i);
 
         vec3 transmittance = exp(-(sunRayOpticalDepth + viewRayOpticalDepth) * LIGTH_SCATTERING_COEFFICIENTS);
@@ -176,26 +226,22 @@ vec3 calcScatteredAtmosphereLight(vec3 rayOrigin, vec3 rayDirection, float rayLe
     return color * originalColorTransmittance + inScatteredLight;
 }
 
-void calcAtmosphereColor(vec3 currentPos, vec3 stepDirection, out vec3 color) {
+void calcAtmosphereColor(vec3 currentPos, vec3 rayDirection, out vec3 color) {
     float sceneDepth = length(currentPos - uEyeWorldPos);
     
-    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, stepDirection);
+    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, rayDirection);
     float dstToOcean = oceanSphereHitInfo.x;
     
-    // the distance to either the terrain or the ocean
+    // The distance to either the terrain or the ocean
     float dstToSurface = min(dstToOcean, sceneDepth);
 
-    vec2 atmosphereSphereHitInfo = raySphereIntersection(vec3(0.0), ATMOSPHERE_SPHERE_RADIUS, uEyeWorldPos, stepDirection);
+    vec2 atmosphereSphereHitInfo = raySphereIntersection(vec3(0.0), ATMOSPHERE_SPHERE_RADIUS, uEyeWorldPos, rayDirection);
 
     float dstThroughAtmosphere = min(atmosphereSphereHitInfo.y, dstToSurface - atmosphereSphereHitInfo.x);
 
     if (dstThroughAtmosphere > 0.0) {
-        vec3 firstPointInAtmosphere = uEyeWorldPos + stepDirection * atmosphereSphereHitInfo.x;
-        vec3 light = calcScatteredAtmosphereLight(firstPointInAtmosphere, stepDirection, dstThroughAtmosphere, color);
-        // color = vec3(light);
-        // color = firstPointInAtmosphere / 2.0 + 0.5;
-        // color = color * (1.0 - light) + light;
-        color = light;
+        vec3 firstPointInAtmosphere = uEyeWorldPos + rayDirection * atmosphereSphereHitInfo.x;
+        color = calcScatteredAtmosphereLight(firstPointInAtmosphere, rayDirection, dstThroughAtmosphere, color);
     }
 }
 
@@ -203,18 +249,18 @@ void main() {
     vec3 color;
     int steps = 0;
 
-    // the computation distance should not exceed uBailout
-    vec3 stepDirection = normalize(vFragmentPos);
+    vec3 rayDirection = normalize(vFragmentPos);
     vec3 currentPos = uEyeWorldPos;
     
     float terrainDisplacement;
+    bool hitTerrain = false;
 
     while(true) {
         steps++;
 
         float nearestDist = sdf(currentPos, terrainDisplacement);
 
-        currentPos += stepDirection * nearestDist;
+        currentPos += rayDirection * nearestDist;
 
         if(steps > MAX_STEPS || nearestDist >= BAILOUT_DIST) {
             color = vec3(0.0f);
@@ -222,14 +268,39 @@ void main() {
         }
 
         if(nearestDist <= MIN_DIST) {
-            calcTerrainColor(currentPos, terrainDisplacement, color);
+            calcTerrainColor(terrainDisplacement, color);
+            hitTerrain = true;
             break;
         }
     }
 
-    calcOceanColor(currentPos, stepDirection, color);
+    vec3 normal = vec3(0.0); 
+    vec3 oceanHitPos = vec3(0.0);
+    bool hitOcean = calcOceanColor(currentPos, rayDirection, color, normal, oceanHitPos);
 
-    calcAtmosphereColor(currentPos, stepDirection, color);
+    if (!hitOcean && hitTerrain) {
+        normal = calcSDFNormal(currentPos);
+        applyBlinnPhongLighting(currentPos, normal, .5, color);
+    }
+    else {
+        currentPos = oceanHitPos;
+        applyBlinnPhongLighting(currentPos, normal, 200.0, color);
+    }
+    
+    calcAtmosphereColor(currentPos, rayDirection, color);
 
+    rayDirection.y *= -1.0;
+    if (!hitTerrain && !hitOcean) {
+        color += texture(uCubeBackground, rayDirection).rgb * 0.5;
+        color /= 1.5;
+    }
+
+    float gamma = 1.5;
+    // reinhard tone mapping
+    color = color / (color + vec3(1.0));
+    // gamma correction 
+    color = pow(color, vec3(1.0 / gamma));
+
+    
     fColor = vec4(color, 1.0f);
 }

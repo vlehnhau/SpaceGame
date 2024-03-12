@@ -3,16 +3,19 @@ import { compileShaderProgram, resizeCanvas, normalMatrix, loadImage } from './U
 
 import PlanetVertexShaderRaw from "./shader/Planet.vs.glsl?raw"
 import PlanetFragmentShaderRaw from "./shader/Planet.fs.glsl?raw"
-import { Matrix4, Vector2, Vector3 } from '@math.gl/core';
+import { Matrix3, Matrix4, Vector2, Vector3 } from '@math.gl/core';
 import { RangeSlider } from './ui/RangeSlider';
 import { UIPanel } from './ui/UIPanel';
-import Cookies from "js-cookie";
+import { createCubemap } from './Cubemap';
+import { Camera } from './Camera';
+import { Matrix } from '@math.gl/core/dist/classes/base/matrix';
 
 type AppContext = {
     gl: WebGL2RenderingContext;
     planetShader: WebGLProgram;
     quadVAO: WebGLBuffer;
     aspectRatio: number;
+    cubemapTexture: WebGLTexture;
     noiseMap: WebGLTexture;
 
     displacementFactor: number;
@@ -22,27 +25,13 @@ type AppContext = {
     mousePos: Vector2;
     mousePressed: boolean;
 
-    zoom: number;
-
-    cameraPos: Vector3;
-    cameraViewDirection: Vector3;
-    cameraPitch: number;
-    cameraYaw: number;
-    cameraSpeed: number;
+    camera: Camera;
+    
+    movementSpeed: number;
 }
 
 const drawScene = (context: AppContext) => {
     const gl = context.gl;
-
-    const rotationMat = normalMatrix(new Matrix4().lookAt({
-        eye: context.cameraPos,
-        center: new Vector3().addVectors(context.cameraPos, context.cameraViewDirection),
-        up: new Vector3(0, 1, 0)
-    }));
-
-    const projectionMatrix = new Matrix4().identity();
-    projectionMatrix.setElement(1, 1, context.aspectRatio);
-    projectionMatrix.scale([context.zoom, context.zoom, 1]);
 
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -53,47 +42,22 @@ const drawScene = (context: AppContext) => {
 
     gl.uniform1f(gl.getUniformLocation(context.planetShader, "uDisplacementExponent"), context.displacementExponent);
 
-    gl.uniformMatrix4fv(gl.getUniformLocation(context.planetShader, "uProjectionMatrix"), false, projectionMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(context.planetShader, "uProjectionMatrix"), false, context.camera.projectionMatrix);
 
-    gl.uniformMatrix3fv(gl.getUniformLocation(context.planetShader, "uRotationMatrix"), false, rotationMat);
+    gl.uniformMatrix3fv(gl.getUniformLocation(context.planetShader, "uViewDirectionRotationMatrix"), false, context.camera.viewDirectionRotationMatrix);
 
-    gl.uniform3fv(gl.getUniformLocation(context.planetShader, "uEyeWorldPos"), context.cameraPos);
-    
+    gl.uniform3fv(gl.getUniformLocation(context.planetShader, "uEyeWorldPos"), context.camera.position);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, context.noiseMap);
+    gl.uniform1i(gl.getUniformLocation(context.planetShader, 'uNoiseMap'), 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, context.cubemapTexture);
+    gl.uniform1i(gl.getUniformLocation(context.planetShader, 'uCubeBackground'), 1);
+
     gl.bindVertexArray(context.quadVAO);
-
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-}
-
-// Returns true if the camera moved
-const executeMovement = (context: AppContext): boolean => {
-    const oldCameraPos = new Vector3(context.cameraPos);
-
-    const xyDir = new Vector3(-Math.cos(context.cameraYaw), 0, Math.sin(context.cameraYaw));
-    
-    if (context.keyPressedMap['w']) {            
-        context.cameraPos.addScaledVector(xyDir, context.cameraSpeed);
-    }
-    else if (context.keyPressedMap['s']) {
-        context.cameraPos.addScaledVector(xyDir, -context.cameraSpeed);
-    }
-
-    if (context.keyPressedMap['a']) {
-        const rightVec = new Vector3(0, 1, 0).cross(xyDir);
-        context.cameraPos.addScaledVector(rightVec, context.cameraSpeed);
-    }
-    else if (context.keyPressedMap['d']) {
-        const rightVec = new Vector3(0, 1, 0).cross(xyDir);
-        context.cameraPos.addScaledVector(rightVec, -context.cameraSpeed);
-    }
-
-    if (context.keyPressedMap['v']) {
-        context.cameraPos.y -= context.cameraSpeed;
-    }
-    else if (context.keyPressedMap[' ']) {
-        context.cameraPos.y += context.cameraSpeed;
-    }
-
-    return !oldCameraPos.exactEquals(context.cameraPos);
 }
 
 const createQuadVAO = (gl: WebGL2RenderingContext) => {
@@ -145,6 +109,9 @@ const App = () => {
     const canvas = React.useRef<HTMLCanvasElement>();
     const contextRef = React.useRef<AppContext>();
 
+    const terrainDisplacementFactorSlider = React.useRef<HTMLInputElement>(null);
+    const terrainDisplacementExponentSlider = React.useRef<HTMLInputElement>(null);
+
     const init = async () => {
         const gl = canvas.current.getContext('webgl2', { antialias: false })
         if (!gl) return;
@@ -154,30 +121,26 @@ const App = () => {
 
         const noiseMap = await createNoiseMap(gl, planetShader, "uNoiseMap");
 
-        const displacementFactor = parseFloat(Cookies.get("displacementFactor"));
-        const displacementExponent = parseFloat(Cookies.get("displacementExponent"));
+        const cubemapTexture = await createCubemap(gl);
 
         contextRef.current = {
-            gl,
-            planetShader,
-            quadVAO,
+            gl: gl,
+            planetShader: planetShader,
+            quadVAO: quadVAO,
             aspectRatio: 1.0,
+            cubemapTexture: cubemapTexture,
             noiseMap: noiseMap,
 
-            displacementFactor: displacementFactor,
-            displacementExponent: displacementExponent,
+            displacementFactor: terrainDisplacementFactorSlider.current.valueAsNumber,
+            displacementExponent: terrainDisplacementExponentSlider.current.valueAsNumber,
 
             keyPressedMap: {},
             mousePos: null,
             mousePressed: false,
 
-            zoom: 1.4,
-
-            cameraPos: new Vector3(2, 0, 0),
-            cameraViewDirection: new Vector3(1, 0, 0).normalize(),
-            cameraPitch: 0,
-            cameraYaw: 0,
-            cameraSpeed: 0.07
+            camera: new Camera(0, 0, 1),
+        
+            movementSpeed: 0.07
         }
 
         resizeCanvas(canvas.current);
@@ -208,13 +171,16 @@ const App = () => {
 
     const resizeViewport = () => {
         contextRef.current.aspectRatio = canvas.current.width / canvas.current.height;
-        contextRef.current.gl.viewport(0, 0, canvas.current.width, canvas.current.height)
+        contextRef.current.gl.viewport(0, 0, canvas.current.width, canvas.current.height);
+        contextRef.current.camera.updateProjectionMatrix(contextRef.current.aspectRatio);
     }
 
     const mouseWheel = (event: WheelEvent): void => {
         if (!contextRef.current) 
             return;
-        contextRef.current.zoom += event.deltaY * 0.0008;
+        const newZoom = contextRef.current.camera.getZoom() + event.deltaY * 0.0008;
+        contextRef.current.camera.setZoom(newZoom);
+
         drawScene(contextRef.current);
     }
 
@@ -229,6 +195,7 @@ const App = () => {
     const mouseUp = (event: MouseEvent): void => {
         if (!contextRef.current) 
             return;
+
         const ctx = contextRef.current;
         ctx.mousePressed = false;
     }
@@ -241,17 +208,10 @@ const App = () => {
         if (ctx.mousePressed) {
             const newPos = new Vector2(event.clientX, event.clientY);
             
-            ctx.cameraYaw   -= ((newPos.x - ctx.mousePos.x) * 0.11) * Math.PI / 180;
-            // ctx.cameraPitch += ((newPos.y - ctx.mousePos.y) * 0.11) * Math.PI / 180;
+            const newYaw   = ctx.camera.getYaw()   - ((newPos.x - ctx.mousePos.x) * 0.11) * Math.PI / 180;
+            const newPitch = ctx.camera.getPitch(); //+ ((newPos.y - ctx.mousePos.y) * 0.11) * Math.PI / 180;
 
-            ctx.cameraViewDirection.x = Math.cos(ctx.cameraPitch) * Math.cos(ctx.cameraYaw);
-            ctx.cameraViewDirection.y = Math.sin(ctx.cameraPitch);
-            ctx.cameraViewDirection.z = Math.cos(ctx.cameraPitch) * Math.sin(ctx.cameraYaw);
-            ctx.cameraViewDirection.normalize();
-
-            const xyDir = new Vector3(-Math.cos(ctx.cameraYaw), 0, Math.sin(ctx.cameraYaw));
-
-            ctx.cameraPos = xyDir.scale(-2);
+            ctx.camera.setRotation(newPitch, newYaw);
             
             ctx.mousePos = newPos;
 
@@ -260,13 +220,11 @@ const App = () => {
     }
 
     const keyDown = (event: KeyboardEvent): void => {
-
         contextRef.current.keyPressedMap[event.key.toLowerCase()] = true;
         drawScene(contextRef.current);
     }
 
     const keyUp = (event: KeyboardEvent): void => {
-        
         contextRef.current.keyPressedMap[event.key.toLowerCase()] = false;
         drawScene(contextRef.current);
     }
@@ -282,6 +240,7 @@ const App = () => {
             <UIPanel noExpand={true}>
                 Terrain Displacement Factor:
                 <RangeSlider 
+                    inputRef={terrainDisplacementFactorSlider}
                     cookieName="displacementFactor"
                     value={0.6}
                     min={0}
@@ -294,6 +253,7 @@ const App = () => {
                 </RangeSlider>   
                 Terrain Displacement Exponent:
                 <RangeSlider 
+                    inputRef={terrainDisplacementExponentSlider}
                     cookieName="displacementExponent"
                     value={6.0}
                     min={1}
