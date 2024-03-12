@@ -14,9 +14,9 @@ export class Player implements Entity {
     components: Array<comp.Component>;
     newPos: Vector3;
 
-    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: Material) {
+    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: Material, vertexPositions: number[]) {
         this.newPos = new Vector3(pos.x, pos.y, pos.z);
-        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial)];
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial), new comp.MaxRadius(vertexPositions)];
     }
 
     InitiatePlayerMove(newPos: Vector3) {
@@ -39,12 +39,12 @@ export class Player implements Entity {
 export class Asteroid implements Entity {
     components: Array<comp.Component>;
 
-    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: {}) {
+    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: {}, vertexPositions: number[]) {
         let velVec = new Vector3().subVectors((new Vector3(randomIntFromInterval(-600,600), randomIntFromInterval(-300,300), 0)), pos)
         velVec.normalize()
         velVec = velVec.multiplyByScalar(3)
 
-        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial), new comp.VelocityComp(velVec)];
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial), new comp.VelocityComp(velVec), new comp.MaxRadius(vertexPositions)];
     }
 }
 

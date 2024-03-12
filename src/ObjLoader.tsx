@@ -19,6 +19,7 @@ export interface Material {
     vao: WebGLVertexArrayObject;
     iboLength: number;
     material: Material;
+    vertexPositions: number[]
   }
   
   export const loadObj = (gl: WebGL2RenderingContext, objFileContent: string, mtlFileContent: string): VaoMaterialInfo[] => {
@@ -68,6 +69,7 @@ export interface Material {
                   }
                   break;
           }
+          
       }
   
       Object.keys(modelData).forEach(material => {
@@ -83,7 +85,7 @@ export interface Material {
       const vaoInfos: VaoMaterialInfo[] = Object.keys(modelData).map(material => {
           const data = modelData[material];
           const vao = createVAO(gl, data.vertices, data.normals, data.texCoords, data.indices);
-          return { vao, iboLength: data.indices.length, material: materials[material] };
+          return { vao, iboLength: data.indices.length, material: materials[material], vertexPositions };
         
       });
   

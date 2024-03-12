@@ -28,6 +28,7 @@ export class Game {
     modelVBO: Array<WebGLVertexArrayObject>; 
     modelLength: Array<number>;
     modelMaterials: Array<{}>;
+    modelVertices: number;
 
     modelVBOBullet: WebGLVertexArrayObject;
     modelLengthBullet: number;
@@ -40,7 +41,7 @@ export class Game {
         // this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
         // this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
         // this.modelMaterials = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).materials]
-
+        
         // this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
         // this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
         // this.modelMaterialBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).materials;
@@ -54,7 +55,7 @@ export class Game {
         // this.spawnAstroid();
 
 
-        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vao, obj.iboLength, obj.material));
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vao, obj.iboLength, obj.material, obj.vertexPositions));
     }
 
     shoot() {
@@ -70,7 +71,7 @@ export class Game {
         let startPos = new Vector3(randomIntFromInterval(-10000,10000), randomIntFromInterval(-4000, 4000), randomIntFromInterval(-6000, -5000));
         let x = randomIntFromInterval(0, this.modelVBO.length - 1);
 
-        this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3, this.modelMaterials[x]));
+        this.entities.push(new ent.Asteroid(startPos, this.modelVBO[x], this.modelLength[x] / 3, this.modelMaterials[x], this.modelVertices[x]));
     }
 
     move(direction: string) { 
@@ -136,6 +137,27 @@ export class Game {
 
         });
     }
+    
+    collisionAsteroid() {
+        let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
+        let asteroid = (this.entities as any).find(entity => entity instanceof ent.Asteroid) as ent.Asteroid;
+        let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+        let asteroidPos = asteroid.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+        let playerRadius = player.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;
+        let asteroidRadius = asteroid.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;
+
+        let distanceCenter = Math.sqrt(Math.pow(playerPos.pos.x - asteroidPos.pos.x, 2) + Math.pow(playerPos.pos.y - asteroidPos.pos.y, 2) + Math.pow(playerPos.pos.z - asteroidPos.pos.z, 2));
+        let distance = (distanceCenter - (playerRadius.maxRadius + asteroidRadius.maxRadius));
+
+        //console.log(playerRadius, asteroidRadius, distance);
+
+        if (distance <= 0) {
+            console.log('Collision');
+            asteroidPos.pos = new Vector3 (asteroidPos.pos.x + 10, asteroidPos.pos.y + 10, asteroidPos.pos.z + 10);
+        }
+    }
+
+
 
     draw(gl: WebGL2RenderingContext) {
         let near = 0.1;

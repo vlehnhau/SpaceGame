@@ -28,6 +28,7 @@ const App = () => {
         setInterval(() => { contextRef.current.game.draw(contextRef.current.gl) }, 1);
         setInterval(() => { executeMovement() }, 100);
         setInterval(() => { myGame.autoMove() }, 1);
+        setInterval(() => {myGame.collisionAsteroid()}, 10);
 
         window.addEventListener('resize', () => {
             resizeCanvas(canvas.current)
