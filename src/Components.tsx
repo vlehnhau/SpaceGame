@@ -1,4 +1,5 @@
 import { Matrix4, Vector3 } from "@math.gl/core";
+import { Material } from "./ObjLoader";
 
 export interface Component { }
 
@@ -11,5 +12,5 @@ export class VelocityComp implements Component {
 }
 
 export class RenderComp implements Component {
-    constructor(public vao: WebGLBuffer, public countTriangles: number, public matirial: {}) { }
+    constructor(public vao: WebGLBuffer, public countTriangles: number, public material: Material) { }
 }

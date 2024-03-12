@@ -1,5 +1,6 @@
 import { Vector3 } from "@math.gl/core";
 import * as comp from "./Components";
+import { Material } from "./ObjLoader";
 
 function randomIntFromInterval(min, max) { // min and max included 
     return Math.floor(Math.random() * (max - min + 1) + min)
@@ -13,7 +14,7 @@ export class Player implements Entity {
     components: Array<comp.Component>;
     newPos: Vector3;
 
-    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: {}) {
+    constructor(pos: Vector3, vao: WebGLBuffer, triangleCount: number, matirial: Material) {
         this.newPos = new Vector3(pos.x, pos.y, pos.z);
         this.components = [new comp.PositionComp(pos), new comp.RenderComp(vao, triangleCount, matirial)];
     }

@@ -15,6 +15,7 @@ import ModelMtlRawBullettracer from './../resources/LazerBullet.mtl?raw';
 
 import ModelObjRawAsteroidOne from './../resources/Rock.obj?raw';
 import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
+import { render } from "react-dom";
 
 function randomIntFromInterval(min, max) { // min and max included 
     return Math.floor(Math.random() * (max - min + 1) + min)
@@ -33,26 +34,27 @@ export class Game {
     modelMaterialBullet: {};
 
     constructor(gl: WebGL2RenderingContext) {
-        const obj = loadObj(gl, ModelObjRaw, ModelMtlRaw);
+        const obj = loadObj(gl, ModelObjRaw, ModelMtlRaw)[0];
         this.shaderID = compileShaderProgram(gl, VertexCode, FragmentCode);
 
-        this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
-        this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
-        this.modelMaterials = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).materials]
+        // this.modelVBO = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).vbo];
+        // this.modelLength = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).iboLength];
+        // this.modelMaterials = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne).materials]
 
-        this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
-        this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
-        this.modelMaterialBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).materials;
+        // this.modelVBOBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).vbo;
+        // this.modelLengthBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).iboLength;
+        // this.modelMaterialBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer).materials;
 
         this.entities = [];
 
-        this.spawnAstroid();
-        this.spawnAstroid();
-        this.spawnAstroid();
-        this.spawnAstroid();
-        this.spawnAstroid();
+        // this.spawnAstroid();
+        // this.spawnAstroid();
+        // this.spawnAstroid();
+        // this.spawnAstroid();
+        // this.spawnAstroid();
 
-        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vbo, obj.iboLength / 3, obj.materials));
+
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), obj.vao, obj.iboLength, obj.material));
     }
 
     shoot() {
@@ -180,7 +182,7 @@ export class Game {
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
             if (renderComp && positionComp) {
-                const materialProps = renderComp.matirial;
+                const materialProps = renderComp.material;
 
                 const modelMatrix = new Matrix4().makeTranslation(positionComp.pos.x, positionComp.pos.y, positionComp.pos.z);
                 modelMatrix.multiplyRight(viewMatrix);
@@ -188,20 +190,14 @@ export class Game {
                 const normalMatrixPrivat = normalMatrix(modelMatrix);
 
                 const uMaterialDiffuseLoc = gl.getUniformLocation(this.shaderID, 'uMaterialDiffuse');
-                const matName = 'lambert2SG'; 
-                if(materialProps[matName] && 'diffuse' in materialProps[matName]) {
-                    const diffuse = materialProps[matName].diffuse;
-                    gl.uniform3fv(uMaterialDiffuseLoc, diffuse);
-                } else {
-                    console.error('Material oder Kd-Eigenschaft nicht gefunden:', matName);
-                }
                 
+                gl.uniform3fv(uMaterialDiffuseLoc, materialProps.diffuse);
 
                 gl.bindVertexArray(renderComp.vao);
                 gl.uniformMatrix4fv(modelViewLoc, false, modelMatrix);
                 gl.uniformMatrix3fv(gl.getUniformLocation(this.shaderID, 'uNormalMatrix'), false, normalMatrixPrivat);
                 // gl.drawArrays(gl.TRIANGLES, 0, renderComp.countTriangles);
-                gl.drawElements(gl.TRIANGLES, renderComp.countTriangles * 3, gl.UNSIGNED_INT, 0);
+                gl.drawElements(gl.TRIANGLES, renderComp.countTriangles, gl.UNSIGNED_INT, 0);
             }
         });
     }
