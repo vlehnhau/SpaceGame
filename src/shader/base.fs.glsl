@@ -6,7 +6,7 @@ in vec3 vPosition;
 
 uniform vec3 uLightColor;
 uniform vec3 uLightPosition;
-uniform vec3 uViewPosition; 
+uniform vec3 uViewPosition;
 uniform float uShininess;
 
 uniform vec3 uMaterialAmbient;
@@ -25,27 +25,27 @@ void main() {
     vec3 viewDir = normalize(uViewPosition - vPosition);
     vec3 halfwayDir = normalize(lightDir + viewDir);
 
-    float diff = max(dot(norm, lightDir), 0.0);
-    float spec = pow(max(dot(norm, halfwayDir), 0.0), uShininess);
+    float diff = max(dot(norm, lightDir), 0.0f);
+    float spec = pow(max(dot(norm, halfwayDir), 0.0f), uShininess);
 
-    float diffusionCoefficient = 10000.0; 
+    float diffusionCoefficient = 10000.0f;
     vec3 diffuse = uMaterialDiffuse * diff * uLightColor * diffusionCoefficient;
 
     vec3 ambient = uMaterialAmbient * uLightColor;
     vec3 specular = uMaterialSpecular * spec * uLightColor;
     vec3 emissive = uMaterialEmissive;
 
-    vec3 result = ambient * (1.0 / uOpticalDensity) + (diffuse + specular + emissive) * 0.0001;
+    vec3 result = ambient * (1.0f / uOpticalDensity) + (diffuse + specular + emissive) * 0.0001f;
 
-    if (uIllum == 2) {
-        result *= 0.2; 
+    if(uIllum == 2) {
+        result *= 0.2f;
     } else {
-        result *= 0.5;
+        result *= 0.5f;
     }
 
-    float gamma = 1.2;
-    result = result / (result + vec3(1.0));
-    result = pow(result, vec3(1.0 / gamma));
+    float gamma = 1.2f;
+    result = result / (result + vec3(1.0f));
+    result = pow(result, vec3(1.0f / gamma));
 
     fragColor = vec4(result, uOpacity);
 }

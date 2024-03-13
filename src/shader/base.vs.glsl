@@ -12,9 +12,9 @@ out vec3 vNormal;
 out vec3 vPosition;
 
 void main() {
-    gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+    gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0f);
 
     vNormal = uNormalMatrix * aNormal;
-    
-    vPosition = vec3(uModelViewMatrix * vec4(aPosition, 1.0));
+
+    vPosition = vec3(uModelViewMatrix * vec4(aPosition, 1.0f));
 }

@@ -22,45 +22,57 @@ import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
 import { render } from "react-dom";
 import { createCubemap } from "./cubemap";
 
-function randomIntFromInterval(min, max) { // min and max included 
+function randomIntFromInterval(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min)
 }
 
 export class Game {
     entities: Array<ent.Entity>;
+
     shaderID: WebGLProgram;
     skyboxShaderProgram: WebGLProgram;
     skyboxVao: {vao: WebGLVertexArrayObject, iboSize: number};
 
-    score: number
+    score: number;
 
     objListAsteroids: Array<exportObjLoader>;
-
     objBullet: exportObjLoader;
+    objSpaceship: exportObjLoader;
     
     skyboxTexture: WebGLTexture;
 
+    difficulty: number;
+    astCounter: number;
+    gameOver: Boolean;
+
     constructor(gl: WebGL2RenderingContext) {
-        const objSpaceship = loadObj(gl, ModelObjRaw, ModelMtlRaw);
         this.shaderID = compileShaderProgram(gl, VertexCode, FragmentCode);
         this.skyboxShaderProgram = compileShaderProgram(gl, VertexCodeSkyBox, FragmentCodeSkyBox);
 
+        this.objSpaceship = loadObj(gl, ModelObjRaw, ModelMtlRaw);
         this.objListAsteroids = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne)];
-
         this.objBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer);
 
-        this.score = 0;
-
         this.entities = [];
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), this.objSpaceship.vaoInfos, this.objSpaceship.vertexPositions));
 
-        this.spawnAstroid();
-        this.spawnAstroid();
-        this.spawnAstroid();
-        this.spawnAstroid();
-        this.spawnAstroid();
-
-        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), objSpaceship.vaoInfos, objSpaceship.vertexPositions));
+        this.score = 0;        
+        this.difficulty = 5;
+        this.astCounter = 0;
+        this.gameOver = false;
     }
+
+    changeDif() {
+        if (!this.gameOver) {
+            if(this.score > 10) {
+                this.difficulty = this.difficulty + this.score / 10;
+            }
+            while (this.astCounter <= this.difficulty) {
+                this.spawnAstroid();
+            }
+        }
+    }
+ 
 
     shoot() {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
@@ -71,10 +83,15 @@ export class Game {
         this.entities.push(new ent.Bullet(destination, this.objBullet.vaoInfos));
     }
 
+    delAst(index) {
+        this.entities.splice(index, 1);
+        this.astCounter -= 1;
+    }
+
     spawnAstroid() {
         let startPos = new Vector3(randomIntFromInterval(-1000, 1000), randomIntFromInterval(-400, 400), randomIntFromInterval(-6000, -5000));
         let x = randomIntFromInterval(0, this.objListAsteroids.length - 1);
-
+        this.astCounter += 1;
         this.entities.push(new ent.Asteroid(startPos, this.objListAsteroids[x].vaoInfos, this.objListAsteroids[x].vertexPositions));
     }
 
@@ -85,23 +102,23 @@ export class Game {
         switch (direction) {
             case 'left':
                 newPos = new Vector3(player.newPos.x - 100, player.newPos.y, player.newPos.z);
-                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.z += -0.005
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.z += -0.005;
                 break;
             case 'right':
                 newPos = new Vector3(player.newPos.x + 100, player.newPos.y, player.newPos.z);
-                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.z += 0.005
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.z += 0.005;
                 break;
             case 'up':
                 newPos = new Vector3(player.newPos.x, player.newPos.y + 100, player.newPos.z);
-                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.x += -0.005
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.x += -0.005;
                 break;
             case 'down':
                 newPos = new Vector3(player.newPos.x, player.newPos.y - 100, player.newPos.z);
-                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.x += 0.005
+                (player.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp).rotFuture.x += 0.005;
                 break;
         }
 
-        let pos = (player.components.find(componentPos => componentPos instanceof comp.PositionComp) as comp.PositionComp).pos
+        let pos = (player.components.find(componentPos => componentPos instanceof comp.PositionComp) as comp.PositionComp).pos;
 
         let borderX = 2000;
         let borderY = 1000;
@@ -131,12 +148,12 @@ export class Game {
                 positionComp.pos = new Vector3().add(velocityComp.vel, positionComp.pos);
 
                 if (entity instanceof ent.Asteroid && positionComp.pos.z > 500) {
-                    this.entities.splice(this.entities.indexOf(entity), 1);
+                    this.delAst(this.entities.indexOf(entity));
                     this.spawnAstroid();
                 } else if (positionComp.pos.z < -10000) {
                     this.entities.splice(this.entities.indexOf(entity), 1);
                 } else if (entity instanceof ent.Player) {
-                    let vel = (entity.components.find(componentVel => componentVel instanceof comp.VelocityComp) as comp.VelocityComp).vel
+                    let vel = (entity.components.find(componentVel => componentVel instanceof comp.VelocityComp) as comp.VelocityComp).vel;
 
                     vel = vel.multiplyByScalar(0.99);
 
@@ -169,20 +186,20 @@ export class Game {
 
         });
     }
-    
+
+    restart() {
+        this.entities = [];
+
+        this.entities.push(new ent.Player(new Vector3(0, -300, -1000), this.objSpaceship.vaoInfos, this.objSpaceship.vertexPositions));
+        this.difficulty = 5;
+        this.astCounter = 0;
+        this.gameOver = true;
+    }
+
     collisionAsteroid() {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
         let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
         let playerRadius = player.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;
-
-        // let asteroid = (this.entities as any).find(entity => entity instanceof ent.Asteroid) as ent.Asteroid;
-        // let asteroidPos = asteroid.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
-        // let asteroidRadius = asteroid.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;  
-
-        // let distanceCenter = Math.sqrt(Math.pow(playerPos.pos.x - asteroidPos.pos.x, 2) + Math.pow(playerPos.pos.y - asteroidPos.pos.y, 2) + Math.pow(playerPos.pos.z - asteroidPos.pos.z, 2));
-        // let distance = (distanceCenter - (playerRadius.maxRadius + asteroidRadius.maxRadius));
-
-        //console.log(playerRadius, asteroidRadius, distance);
 
         let asteroids = this.entities.filter(entity => entity instanceof ent.Asteroid);
         let bullets = this.entities.filter(entity => entity instanceof ent.Bullet);
@@ -196,9 +213,7 @@ export class Game {
 
             if (distance <= 50) {
                 console.log('Collision');
-                this.entities.splice(this.entities.indexOf(asteroid), 1);
-                this.spawnAstroid();
-                this.score = 0;
+                this.restart();
             }
 
             bullets.forEach(bullet =>{
@@ -209,7 +224,7 @@ export class Game {
                 let distanceHit = (distanceCenterHit - (asteroidRadius.maxRadius + bulletRadius));
                 if (distanceHit <= 50) {
                     console.log('Hit');
-                    this.entities.splice(this.entities.indexOf(asteroid), 1);
+                    this.delAst(this.entities.indexOf(asteroid));
                     this.entities.splice(this.entities.indexOf(bullet), 1);
                     this.spawnAstroid();
                     this.score += 1;
@@ -294,41 +309,70 @@ export class Game {
             });
         });
 
-        this.updateText("Score: " + this.score);
-       this.drawSkybox(gl, projMatrix, viewMatrix);
+        if (!this.gameOver) {
+            this.drawUpdateScore("Score: " + this.score);
+        } 
+        
+        this.drawEndScreen();       
+        this.drawSkybox(gl, projMatrix, viewMatrix);
     }
 
-    updateText(content) {
+    drawUpdateScore(content) {
         let textElement = document.getElementById('textOverlay');
         if (!textElement) {
-            // Textelement erstellen, wenn es nicht existiert
+
             textElement = document.createElement('div');
             textElement.id = 'textOverlay';
             textElement.style.position = 'absolute';
-            textElement.style.top = '50px'; // Anpassen der Position nach Bedarf
-            textElement.style.right = '50px'; // Anpassen der Position nach Bedarf
+            textElement.style.top = '50px'; 
+            textElement.style.right = '50px'; 
             textElement.style.fontFamily = 'Arial, sans-serif';
             textElement.style.fontSize = '16px';
-            textElement.style.color = 'white'; // Anpassen der Textfarbe nach Bedarf
+            textElement.style.color = 'white'; 
     
-            // Rote Box hinzufügen
             const boxElement = document.createElement('div');
             boxElement.style.backgroundColor = 'red';
-            boxElement.style.padding = '5px'; // Anpassen der Größe des Textfeldes nach Bedarf
-            boxElement.style.borderRadius = '5px'; // Anpassen der Rundung des Textfeldes nach Bedarf
+            boxElement.style.padding = '5px'; 
+            boxElement.style.borderRadius = '5px';
             boxElement.style.display = 'inline-block';
-            boxElement.style.border = '5px solid darkred'; // Dunkelroter Rahmen
+            boxElement.style.border = '5px solid darkred'; 
             textElement.appendChild(boxElement);
     
-            // Textelement dem Body hinzufügen
             document.body.appendChild(textElement);
         }
-    
-        // Textinhalt aktualisieren
-        textElement.firstChild.textContent = content; // Den Inhalt des ersten Kindes (der roten Box) aktualisieren
+        textElement.firstChild.textContent = content; 
     }
+
+    drawEndScreen() {
+        let gameOverElement = document.getElementById('gameOverOverlay');
+        if (!gameOverElement) {
+
+            gameOverElement = document.createElement('div');
+            gameOverElement.id = 'gameOverOverlay';
+            gameOverElement.style.position = 'absolute';
+            gameOverElement.style.top = '50%'; 
+            gameOverElement.style.left = '50%';
+            gameOverElement.style.transform = 'translate(-50%, -50%)'; 
+            gameOverElement.style.fontFamily = 'Arial, sans-serif';
+            gameOverElement.style.fontSize = '48px'; 
+            gameOverElement.style.color = 'white';
+            gameOverElement.style.textAlign = 'center'; 
+            gameOverElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            gameOverElement.style.border = '5px solid darkred';
+            gameOverElement.style.padding = '20px';
+            gameOverElement.style.borderRadius = '10px';
+            gameOverElement.style.display = 'none';
     
+            document.body.appendChild(gameOverElement);
+        }
     
+        if (this.gameOver) {
+            gameOverElement.textContent = 'Game Over';
+            gameOverElement.style.display = 'block'; 
+        } else {
+            gameOverElement.style.display = 'none'; 
+        }
+    }       
         
     async drawSkybox(gl, projMatrix, viewMatrix) {
         if (!this.skyboxTexture) {
@@ -355,9 +399,9 @@ export class Game {
         viewMatrixNoTranslation[14] = 0;
         gl.uniformMatrix4fv(uViewMatrixLoc, false, viewMatrixNoTranslation);
     
-        gl.depthFunc(gl.LEQUAL); // Wichtig für das Zeichnen der Skybox im Hintergrund
+        gl.depthFunc(gl.LEQUAL);
         gl.drawElements(gl.TRIANGLES, this.skyboxVao.iboSize, gl.UNSIGNED_SHORT, 0);
-        gl.depthFunc(gl.LESS); // Setze die Tiefenfunktion zurück für den Rest der Szene
+        gl.depthFunc(gl.LESS); 
     
         gl.bindVertexArray(null);
     }

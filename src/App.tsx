@@ -28,7 +28,8 @@ const App = () => {
         setInterval(() => { contextRef.current.game.draw(contextRef.current.gl) }, 1);
         setInterval(() => { executeMovement() }, 100);
         setInterval(() => { myGame.autoMove() }, 1);
-        setInterval(() => {myGame.collisionAsteroid()}, 10);
+        setInterval(() => { myGame.collisionAsteroid() }, 10);
+        setInterval(() => { myGame.changeDif() }, 1000);
 
         window.addEventListener('resize', () => {
             resizeCanvas(canvas.current)
@@ -40,23 +41,30 @@ const App = () => {
 
     const executeMovement = () => {
         const ctx = contextRef.current;
+        if (!myGame.gameOver) {
+            if (ctx.keyPressedMap['w'] || ctx.keyPressedMap['ArrowUp']) {
+                myGame.move('up');
+            }
+            else if (ctx.keyPressedMap['s'] || ctx.keyPressedMap['ArrowDown']) {
+                myGame.move('down');
+            }
 
-        if (ctx.keyPressedMap['w'] || ctx.keyPressedMap['ArrowUp']) {            
-            myGame.move('up');
-        }
-        else if (ctx.keyPressedMap['s'] || ctx.keyPressedMap['ArrowDown']) {
-            myGame.move('down');
-        }
-    
-        if (ctx.keyPressedMap['a'] || ctx.keyPressedMap['ArrowLeft']) {
-            myGame.move('left');
-        }
-        else if (ctx.keyPressedMap['d'] || ctx.keyPressedMap['ArrowRight']) {
-            myGame.move('right');
-        }
-    
-        if (ctx.keyPressedMap[' ']) {
-            myGame.shoot();
+            if (ctx.keyPressedMap['a'] || ctx.keyPressedMap['ArrowLeft']) {
+                myGame.move('left');
+            }
+            else if (ctx.keyPressedMap['d'] || ctx.keyPressedMap['ArrowRight']) {
+                myGame.move('right');
+            }
+
+            if (ctx.keyPressedMap[' ']) {
+                myGame.shoot();
+            }
+        } else {
+            if (ctx.keyPressedMap[' ']) {
+                myGame.gameOver = false;
+                myGame.difficulty = 5;
+                myGame.score = 0;
+            }
         }
     }
 
