@@ -343,7 +343,7 @@ void main() {
     }
     else if (hitMoon) {
         calcMoonNormal(currentPos, normal);
-        applyBlinnPhongLighting(currentPos, normal, 0.0, color);
+        applyBlinnPhongLighting(currentPos, normal, 0.2, color);
     }
     else {
         currentPos = oceanHitPos;
