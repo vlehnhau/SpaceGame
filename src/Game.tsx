@@ -217,8 +217,6 @@ export class Game {
             const renderComp = entity.components.find(component => component instanceof comp.RenderComp) as comp.RenderComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
-            console.log(renderComp.voaMatInfo.length)
-
             renderComp.voaMatInfo.forEach(phase => {
                 const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
 

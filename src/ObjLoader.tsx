@@ -27,17 +27,17 @@ export interface Material {
   }
   
   export const loadObj = (gl: WebGL2RenderingContext, objFileContent: string, mtlFileContent: string): exportObjLoader => {
-      const materials = parseMTL(mtlFileContent);
-      let currentMaterial: string | null = null;
-  
-      const modelData: {
-          [materialName: string]: {
-              vertices: number[],
-              normals: number[],
-              texCoords: number[],
-              indices: number[]
-          }
-      } = {};
+    const materials = parseMTL(mtlFileContent);
+    let currentMaterial: string | null = null;
+
+    const modelData: {
+        [materialName: string]: {
+            vertices: number[],
+            normals: number[],
+            texCoords: number[],
+            indices: number[]
+        }
+    } = {};
   
       const vertexPositions: number[] = [];
       const vertexNormals: number[] = [];
@@ -86,14 +86,16 @@ export interface Material {
           });
       });
       
-      const vaoInfos: VaoMaterialInfo[] = Object.keys(modelData).map(material => {
-          const data = modelData[material];
-          const vao = createVAO(gl, data.vertices, data.normals, data.texCoords, data.indices);
-          return { vao, iboLength: data.indices.length, material: materials[material] };
-        
-      });
+      const vaoInfos: VaoMaterialInfo[] = [];
 
-      return { vaoInfos, vertexPositions};
+    Object.keys(modelData).forEach(material => {
+        const materialData = modelData[material];
+        const vao = createVAO(gl, materialData.vertices, materialData.normals, materialData.texCoords, materialData.indices);
+        vaoInfos.push({ vao, iboLength: materialData.indices.length, material: materials[material] });
+    });
+    // Ende der Änderung
+
+    return { vaoInfos, vertexPositions };
   }
   
 function createVAO(gl: WebGL2RenderingContext, vertices: number[], normals: number[], texCoords: number[], indices: number[]): WebGLVertexArrayObject {
