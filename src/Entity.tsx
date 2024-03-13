@@ -51,6 +51,21 @@ export class Asteroid implements Entity {
     }
 }
 
+export class ExplotionParticle implements Entity {
+    components: Array<comp.Component>;
+
+    constructor(pos: Vector3, vaoMatInfo: Array<VaoMaterialInfo>, public lifetime: number = 20) {
+        let velVec = new Vector3().subVectors((new Vector3(randomIntFromInterval(-1000, 1000), randomIntFromInterval(-1000, 1000), randomIntFromInterval(-1000, 1000))), pos)
+        velVec.normalize()
+        velVec = velVec.multiplyByScalar(10)
+
+        let rotValX = randomIntFromInterval(-5, 5) / 2000;
+        let rotValY = randomIntFromInterval(-5, 5) / 2000;
+        let rotValZ = randomIntFromInterval(-5, 5) / 2000;
+        this.components = [new comp.PositionComp(pos), new comp.RenderComp(vaoMatInfo), new comp.VelocityComp(velVec), new comp.RotationComp(new Vector3(0), new Vector3(rotValX, rotValY, rotValZ))];
+    }
+}
+
 export class Bullet implements Entity {
     components: Array<comp.Component>;
 

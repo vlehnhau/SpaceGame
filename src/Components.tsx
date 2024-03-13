@@ -20,14 +20,11 @@ export class RotationComp implements Component {
 }
 
 export class MaxRadius implements Component {
-    public maxRadius: number
+    public maxRadius: number;
     constructor(vertexPositions: Array<number>) {
         this.maxRadius = 0;
         for (let i = 0; i < vertexPositions.length; i = i + 3) {
             this.maxRadius = Math.max(this.maxRadius, (Math.sqrt(Math.pow(vertexPositions[i], 2) + Math.pow(vertexPositions[i + 1], 2) + Math.pow(vertexPositions[i + 2], 2))));
-            //    if (Number.isNaN(this.maxRadius)){
-            //        console.log(vertexPositions[i], vertexPositions[i+1], vertexPositions[i+2], i);
-            //     }
         }
     }
 }

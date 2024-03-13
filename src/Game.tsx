@@ -19,6 +19,9 @@ import ModelMtlRawBullettracer from './../resources/LazerBullet.mtl?raw';
 import ModelObjRawAsteroidOne from './../resources/Rock.obj?raw';
 import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
 
+import ModelObjRawPart from './../resources/Explo.obj?raw';
+import ModelMtlRawPart from './../resources/Explo.mtl?raw';
+
 import { render } from "react-dom";
 import { createCubemap } from "./cubemap";
 
@@ -38,6 +41,7 @@ export class Game {
     objListAsteroids: Array<exportObjLoader>;
     objBullet: exportObjLoader;
     objSpaceship: exportObjLoader;
+    objExplo: exportObjLoader;
     
     skyboxTexture: WebGLTexture;
 
@@ -52,6 +56,7 @@ export class Game {
         this.objSpaceship = loadObj(gl, ModelObjRaw, ModelMtlRaw);
         this.objListAsteroids = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne)];
         this.objBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer);
+        this.objExplo = loadObj(gl, ModelObjRawPart, ModelMtlRawPart);
 
         this.entities = [];
         this.entities.push(new ent.Player(new Vector3(0, -300, -1000), this.objSpaceship.vaoInfos, this.objSpaceship.vertexPositions));
@@ -72,7 +77,6 @@ export class Game {
             }
         }
     }
- 
 
     shoot() {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
@@ -84,8 +88,25 @@ export class Game {
     }
 
     delAst(index) {
+        let astPos = this.entities[index].components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+        if (astPos.pos.z < 0) {
+            for (let index = 0; index < 100; index++) {
+                this.entities.push(new ent.ExplotionParticle(astPos.pos, this.objExplo.vaoInfos));
+            }
+        }
         this.entities.splice(index, 1);
         this.astCounter -= 1;
+    }
+
+    delExplo() {
+        this.entities.forEach(entity => {
+            if (entity instanceof ent.ExplotionParticle) {
+                entity.lifetime -= 1;
+                if (entity.lifetime <= 0) {
+                    this.entities.splice(this.entities.indexOf(entity), 1);
+                }
+            }
+        });
     }
 
     spawnAstroid() {
@@ -211,7 +232,7 @@ export class Game {
             let distanceCenter = Math.sqrt(Math.pow(playerPos.pos.x - asteroidPos.pos.x, 2) + Math.pow(playerPos.pos.y - asteroidPos.pos.y, 2) + Math.pow(playerPos.pos.z - asteroidPos.pos.z, 2));
             let distance = (distanceCenter - (playerRadius.maxRadius + asteroidRadius.maxRadius));
 
-            if (distance <= 50) {
+            if (distance <= 1) {
                 console.log('Collision');
                 this.restart();
             }
@@ -222,7 +243,7 @@ export class Game {
 
                 let distanceCenterHit = Math.sqrt(Math.pow(asteroidPos.pos.x - bulletPos.pos.x, 2) + Math.pow(asteroidPos.pos.y - bulletPos.pos.y, 2) + Math.pow(asteroidPos.pos.z - bulletPos.pos.z, 2));
                 let distanceHit = (distanceCenterHit - (asteroidRadius.maxRadius + bulletRadius));
-                if (distanceHit <= 50) {
+                if (distanceHit <= 1) {
                     console.log('Hit');
                     this.delAst(this.entities.indexOf(asteroid));
                     this.entities.splice(this.entities.indexOf(bullet), 1);
