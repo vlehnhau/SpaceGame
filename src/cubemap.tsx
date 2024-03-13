@@ -1,9 +1,9 @@
-import NegativeX from './pic/interstellar.png'
-import PositiveX from './pic/interstellar.png'
-import NegativeY from './pic/interstellar.png'
-import PositiveY from './pic/interstellar.png'
-import NegativeZ from './pic/interstellar.png'
-import PositiveZ from './pic/interstellar.png'
+import NegativeX from './pic/negx.png'
+import PositiveX from './pic/posx.png'
+import NegativeY from './pic/negy.png'
+import PositiveY from './pic/posy.png'
+import NegativeZ from './pic/negz.png'
+import PositiveZ from './pic/posz.png'
 
 const CubemapTextures = [
     NegativeX,
