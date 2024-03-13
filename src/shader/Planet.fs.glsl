@@ -2,8 +2,11 @@
 precision mediump float;
 
 uniform vec3 uEyeWorldPos;
+uniform vec3 uSunPosition;
+uniform vec3 uMoonPosition;
+
 uniform sampler2D uNoiseMap;
-uniform samplerCube uCubeBackground;
+uniform sampler2D uHDRBackground;
 
 uniform float uDisplacementFactor;
 uniform float uDisplacementExponent;
@@ -13,22 +16,37 @@ in vec3 vFragmentPos;
 out vec4 fColor;
 
 const int MAX_STEPS = 100;
-const float BAILOUT_DIST = 100.0f;
+const float BAILOUT_DIST = 200.0f;
 const float MIN_DIST = 0.0001f;
 
-// const vec3 SUNLIGHT_DIR = normalize(vec3(0.2f, 0.6f, 0.5f));
-const vec3 SUN_POSITION = vec3(0.0, 0.0, 1.0) * 100.0;
-const float SPHERE_RADIUS = 0.5f;
+const vec2 INV_ATAN = vec2(0.1591, 0.3183);
+
+// Variables for configuring the look of the sun
+const vec3 SUN_COLOR = vec3(0.99, 0.78, 0.04);
+const float SUN_RADIUS = 20.0f;
+const float SUN_COLOR_FALLOF = 0.7f;
+const float SUN_BRIGHTNESS_FACTOR = 2000.0f;
+
+// Radius of the moon
+const float MOON_RADIUS = 0.3f;
+
+// Radius of the planet minus the terrain
+const float PLANET_GROUND_SPHERE_RADIUS = 0.5f;
+
+// Gamme for gamma corretion
+const float HDR_GAMMA = 1.2f;
+// Exposure for HDR background texture
+const float HDR_BACKGROUND_EXPOSURE = 50.0f;
 
 // Variables configuring the look of the ocean
-const float OCEAN_DEPTH = 0.02f;
+const float OCEAN_DEPTH = 0.01f;
 const float OCEAN_DEPTH_FACTOR = 80.0f;
 const float OCEAN_ALPHA_FACTOR = 420.0f;
 const vec3 LIGHT_OCEAN_COLOR = vec3(0.0f, 0.55f, 0.97f);
 const vec3 DEEP_OCEAN_COLOR  = vec3(0.04f, 0.01f, 0.27f);
 
 // Variables configuring the look of the atmosphere
-const float ATMOSPHERE_SPHERE_RADIUS = SPHERE_RADIUS + 0.2f;
+const float ATMOSPHERE_SPHERE_RADIUS = PLANET_GROUND_SPHERE_RADIUS + 0.3f;
 const float IN_SCATTER_LIGHT_SAMPLE_POINTS_COUNT = 20.0f;
 const float OPTICAL_DEPTH_SAMPLE_POINTS_COUNT = 20.0f;
 const float ATMOSPHERE_DENSITY_FALLOFF = 7.0;
@@ -80,11 +98,11 @@ vec2 raySphereIntersection(vec3 center, float radius, vec3 rayOrigin, vec3 rayDi
     return vec2(FLOAT_MAX, 0.0);
 }
 
-float sdfSphereWithNoise(vec3 p, float s, out float terrainDisplacement) {
-    float sdfSphereVal = length(p) - s;
+float planetSDF(vec3 pos, float s, out float terrainDisplacement) {
+    float sdfSphereVal = length(pos) - s;
 
     // The current position on a unit sphere
-    vec3 unitP = p / s;
+    vec3 unitP = pos / s;
     vec2 uv = vec2(atan(unitP.x, unitP.z) / PI, unitP.y) * 0.5 + 0.5;
 
     terrainDisplacement = texture(uNoiseMap, uv).r;
@@ -95,20 +113,19 @@ float sdfSphereWithNoise(vec3 p, float s, out float terrainDisplacement) {
     return sdfSphereVal - terrainDisplacement;
 }
 
-float sdf(vec3 pos, out float terrainDisplacement) {
-    return sdfSphereWithNoise(pos, SPHERE_RADIUS, terrainDisplacement);
-}
-
-vec3 calcSDFNormal(in vec3 p) {
+void calcPlanetNormal(vec3 pos, out vec3 normal) {
     const float eps = 0.00001f;
     const vec2 h = vec2(eps, 0);
     float terrainDisplacement;
-    return normalize(vec3(sdf(p + h.xyy, terrainDisplacement) - sdf(p - h.xyy, terrainDisplacement), 
-                          sdf(p + h.yxy, terrainDisplacement) - sdf(p - h.yxy, terrainDisplacement), 
-                          sdf(p + h.yyx, terrainDisplacement) - sdf(p - h.yyx, terrainDisplacement)));
+    normal =  normalize(vec3(planetSDF(pos + h.xyy, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement) 
+                               - planetSDF(pos - h.xyy, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement), 
+                             planetSDF(pos + h.yxy, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement) 
+                               - planetSDF(pos - h.yxy, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement), 
+                             planetSDF(pos + h.yyx, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement) 
+                               - planetSDF(pos - h.yyx, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement)));
 }
 
-void calcTerrainColor(float terrainDisplacement, out vec3 color) {
+void calcPlanetTerrainColor(float terrainDisplacement, out vec3 color) {
     float normalizedTerrainDisplacement = terrainDisplacement / (pow(uDisplacementFactor, uDisplacementExponent));
     float normalizedOceanHeight = OCEAN_DEPTH / (pow(uDisplacementFactor, uDisplacementExponent));
     
@@ -134,11 +151,38 @@ void calcTerrainColor(float terrainDisplacement, out vec3 color) {
     }
 }   
 
+float sunSDF(vec3 pos) {
+    return length(pos - uSunPosition) - SUN_RADIUS;
+}
+
+void calcSunColor(vec3 pos, out vec3 color) {
+    // float normalizedDistanceToCenter = length(pos - uSunPosition) / SUN_RADIUS;
+    vec3 sunToPoint = pos - uSunPosition;
+    vec3 normal = normalize(pos - uEyeWorldPos);
+    vec3 projectedVector = sunToPoint - dot(sunToPoint, normal) * normal;
+    float normalizedDistanceToCenter = length(projectedVector);
+    color = SUN_COLOR * exp(-normalizedDistanceToCenter * SUN_COLOR_FALLOF) * SUN_BRIGHTNESS_FACTOR;  
+}
+
+float moonSDF(vec3 pos) {
+    return length(pos - uMoonPosition) - MOON_RADIUS;
+}
+
+void calcMoonColor(vec3 pos, out vec3 color) {
+    vec3 unitP = (pos - uMoonPosition) / MOON_RADIUS;
+    vec2 uv = vec2(atan(unitP.x, unitP.z) / PI, unitP.y) * 0.5 + 0.5;
+    color = vec3(texture(uNoiseMap, uv).rgb) + 0.2;
+}
+
+void calcMoonNormal(vec3 pos, out vec3 normal) {
+    normal = normalize(pos - uMoonPosition);
+}
+
 // Returns true if the ocean was hit by the ray
 bool calcOceanColor(vec3 currentPos, vec3 rayDirection, out vec3 color, out vec3 normal, out vec3 oceanHitPos) {
     float sceneDepth = length(currentPos - uEyeWorldPos);
 
-    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, rayDirection);
+    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), PLANET_GROUND_SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, rayDirection);
     float distanceToOcean = oceanSphereHitInfo.x;
     float distanceThroughOcean = oceanSphereHitInfo.y;
     float oceanViewDepth = min(distanceThroughOcean, sceneDepth - distanceToOcean);
@@ -160,11 +204,11 @@ bool calcOceanColor(vec3 currentPos, vec3 rayDirection, out vec3 color, out vec3
 }
 
 void applyBlinnPhongLighting(vec3 currentPos, vec3 normal, float shininess, out vec3 color) {
-    vec3 lightDir = normalize(currentPos - SUN_POSITION);
+    vec3 lightDir = normalize(currentPos - uSunPosition);
 
     vec3 viewDir = normalize(currentPos - uEyeWorldPos);
     
-    float attInput = length(normalize(SUN_POSITION - currentPos));
+    float attInput = length(normalize(uSunPosition - currentPos));
     float attenuation = 0.8 / (1.0f + 0.1f * attInput + 0.01f * attInput * attInput);
 
     // diffuse light 
@@ -181,8 +225,8 @@ void applyBlinnPhongLighting(vec3 currentPos, vec3 normal, float shininess, out 
 }
 
 float calcAtmosphereDensityAtPoint(vec3 densitySamplePoint) {
-    float heightAboveSurface = length(densitySamplePoint) - SPHERE_RADIUS;
-    float normalizedHeight = heightAboveSurface / (ATMOSPHERE_SPHERE_RADIUS - SPHERE_RADIUS);
+    float heightAboveSurface = length(densitySamplePoint) - PLANET_GROUND_SPHERE_RADIUS;
+    float normalizedHeight = heightAboveSurface / (ATMOSPHERE_SPHERE_RADIUS - PLANET_GROUND_SPHERE_RADIUS);
 
     return exp(-normalizedHeight * ATMOSPHERE_DENSITY_FALLOFF);
 }
@@ -209,7 +253,7 @@ vec3 calcScatteredAtmosphereLight(vec3 rayOrigin, vec3 rayDirection, float rayLe
     float viewRayOpticalDepth;
 
     for(float i = 0.0f; i < IN_SCATTER_LIGHT_SAMPLE_POINTS_COUNT; i++) {
-        vec3 sunlightDir = normalize(SUN_POSITION - currentRayPos);
+        vec3 sunlightDir = normalize(uSunPosition - currentRayPos);
         float sunRayLength = raySphereIntersection(vec3(0.0), ATMOSPHERE_SPHERE_RADIUS, currentRayPos, sunlightDir).y;
         float sunRayOpticalDepth = calcAtmosphereOpticalDepth(currentRayPos, sunlightDir, sunRayLength);
         viewRayOpticalDepth = calcAtmosphereOpticalDepth(currentRayPos, -rayDirection, stepSize * i);
@@ -229,7 +273,7 @@ vec3 calcScatteredAtmosphereLight(vec3 rayOrigin, vec3 rayDirection, float rayLe
 void calcAtmosphereColor(vec3 currentPos, vec3 rayDirection, out vec3 color) {
     float sceneDepth = length(currentPos - uEyeWorldPos);
     
-    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, rayDirection);
+    vec2 oceanSphereHitInfo = raySphereIntersection(vec3(0.0), PLANET_GROUND_SPHERE_RADIUS + OCEAN_DEPTH, uEyeWorldPos, rayDirection);
     float dstToOcean = oceanSphereHitInfo.x;
     
     // The distance to either the terrain or the ocean
@@ -254,11 +298,16 @@ void main() {
     
     float terrainDisplacement;
     bool hitTerrain = false;
+    bool hitMoon = false;
 
     while(true) {
         steps++;
 
-        float nearestDist = sdf(currentPos, terrainDisplacement);
+        float planetDist = planetSDF(currentPos, PLANET_GROUND_SPHERE_RADIUS, terrainDisplacement);
+        float sunDist = sunSDF(currentPos);
+        float moonDist = moonSDF(currentPos);
+
+        float nearestDist = min(planetDist, min(sunDist, moonDist));
 
         currentPos += rayDirection * nearestDist;
 
@@ -268,19 +317,33 @@ void main() {
         }
 
         if(nearestDist <= MIN_DIST) {
-            calcTerrainColor(terrainDisplacement, color);
-            hitTerrain = true;
+            if (planetDist == nearestDist) {
+                calcPlanetTerrainColor(terrainDisplacement, color);
+                hitTerrain = true;
+            }
+            else if (sunDist == nearestDist) {
+                calcSunColor(currentPos, color);
+            }
+            else {
+                calcMoonColor(currentPos, color);
+                hitMoon = true;
+            }
             break;
         }
     }
 
+    // The "post processing" - effects
     vec3 normal = vec3(0.0); 
     vec3 oceanHitPos = vec3(0.0);
     bool hitOcean = calcOceanColor(currentPos, rayDirection, color, normal, oceanHitPos);
 
     if (!hitOcean && hitTerrain) {
-        normal = calcSDFNormal(currentPos);
+        calcPlanetNormal(currentPos, normal);
         applyBlinnPhongLighting(currentPos, normal, .5, color);
+    }
+    else if (hitMoon) {
+        calcMoonNormal(currentPos, normal);
+        applyBlinnPhongLighting(currentPos, normal, 0.0, color);
     }
     else {
         currentPos = oceanHitPos;
@@ -289,18 +352,15 @@ void main() {
     
     calcAtmosphereColor(currentPos, rayDirection, color);
 
-    rayDirection.y *= -1.0;
-    if (!hitTerrain && !hitOcean) {
-        color += texture(uCubeBackground, rayDirection).rgb * 0.5;
-        color /= 1.5;
+    if (!hitTerrain && !hitOcean && !hitMoon) {
+        vec2 uv = vec2(atan(rayDirection.z, rayDirection.x), asin(rayDirection.y)) * INV_ATAN + 0.5;
+        color += texture(uHDRBackground, uv).rgb * HDR_BACKGROUND_EXPOSURE;
     }
 
-    float gamma = 1.5;
     // reinhard tone mapping
     color = color / (color + vec3(1.0));
     // gamma correction 
-    color = pow(color, vec3(1.0 / gamma));
-
+    color = pow(color, vec3(1.0 / HDR_GAMMA));
     
     fColor = vec4(color, 1.0f);
 }

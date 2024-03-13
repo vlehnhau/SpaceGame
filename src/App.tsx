@@ -3,20 +3,27 @@ import { compileShaderProgram, resizeCanvas, normalMatrix, loadImage } from './U
 
 import PlanetVertexShaderRaw from "./shader/Planet.vs.glsl?raw"
 import PlanetFragmentShaderRaw from "./shader/Planet.fs.glsl?raw"
-import { Matrix3, Matrix4, Vector2, Vector3 } from '@math.gl/core';
+import { Matrix3, Matrix4, Quaternion, Vector2, Vector3 } from '@math.gl/core';
 import { RangeSlider } from './ui/RangeSlider';
 import { UIPanel } from './ui/UIPanel';
-import { createCubemap } from './Cubemap';
+import { createHDRTexture } from './HDRTexture';
 import { Camera } from './Camera';
-import { Matrix } from '@math.gl/core/dist/classes/base/matrix';
+
+import HDRBackgroundTexture from "./../resources/HDRBackground.hdr";
+import Cookies from 'js-cookie';
 
 type AppContext = {
-    gl: WebGL2RenderingContext;
+    gl: WebGL2RenderingContext; 
     planetShader: WebGLProgram;
     quadVAO: WebGLBuffer;
     aspectRatio: number;
-    cubemapTexture: WebGLTexture;
+    backgroundTexture: WebGLTexture;
     noiseMap: WebGLTexture;
+
+    sunPosition: Vector3;
+    sunAngle: number;
+    moonPosition: Vector3;
+    moonRotation: Quaternion;
 
     displacementFactor: number;
     displacementExponent: number;
@@ -26,7 +33,6 @@ type AppContext = {
     mousePressed: boolean;
 
     camera: Camera;
-    
     movementSpeed: number;
 }
 
@@ -47,14 +53,16 @@ const drawScene = (context: AppContext) => {
     gl.uniformMatrix3fv(gl.getUniformLocation(context.planetShader, "uViewDirectionRotationMatrix"), false, context.camera.viewDirectionRotationMatrix);
 
     gl.uniform3fv(gl.getUniformLocation(context.planetShader, "uEyeWorldPos"), context.camera.position);
+    gl.uniform3fv(gl.getUniformLocation(context.planetShader, "uSunPosition"), context.sunPosition);
+    gl.uniform3fv(gl.getUniformLocation(context.planetShader, "uMoonPosition"), context.moonPosition);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, context.noiseMap);
     gl.uniform1i(gl.getUniformLocation(context.planetShader, 'uNoiseMap'), 0);
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, context.cubemapTexture);
-    gl.uniform1i(gl.getUniformLocation(context.planetShader, 'uCubeBackground'), 1);
+    gl.bindTexture(gl.TEXTURE_2D, context.backgroundTexture);
+    gl.uniform1i(gl.getUniformLocation(context.planetShader, 'uHDRBackground'), 1);
 
     gl.bindVertexArray(context.quadVAO);
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -115,21 +123,33 @@ const App = () => {
     const init = async () => {
         const gl = canvas.current.getContext('webgl2', { antialias: false })
         if (!gl) return;
-
+        
         const planetShader = compileShaderProgram(gl, PlanetVertexShaderRaw, PlanetFragmentShaderRaw);
         const quadVAO = createQuadVAO(gl);
 
         const noiseMap = await createNoiseMap(gl, planetShader, "uNoiseMap");
 
-        const cubemapTexture = await createCubemap(gl);
+        const backgroundTexture = await createHDRTexture(gl, HDRBackgroundTexture, gl.TEXTURE1);
+        
+        const cameraPitch = parseFloat(Cookies.get("CameraPitch") ?? "0.0");
+        const cameraYaw = parseFloat(Cookies.get("CameraYaw") ?? "0.0");
+        const cameraZoom = parseFloat(Cookies.get("CameraZoom") ?? "0.0");
 
+        const cameraObj = new Camera(cameraPitch, cameraYaw, cameraZoom);
+        
         contextRef.current = {
             gl: gl,
             planetShader: planetShader,
             quadVAO: quadVAO,
             aspectRatio: 1.0,
-            cubemapTexture: cubemapTexture,
+            backgroundTexture: backgroundTexture,
             noiseMap: noiseMap,
+
+            sunPosition: new Vector3(0, 0.2, 1).scale(100),
+            sunAngle: 0,
+
+            moonPosition: new Vector3(0, 0, 2.0),
+            moonRotation: new Quaternion().rotateX(0.01).rotateY(0.02).rotateZ(0.004),
 
             displacementFactor: terrainDisplacementFactorSlider.current.valueAsNumber,
             displacementExponent: terrainDisplacementExponentSlider.current.valueAsNumber,
@@ -138,7 +158,7 @@ const App = () => {
             mousePos: null,
             mousePressed: false,
 
-            camera: new Camera(0, 0, 1),
+            camera: cameraObj,
         
             movementSpeed: 0.07
         }
@@ -148,10 +168,12 @@ const App = () => {
 
         drawScene(contextRef.current);
 
-        // setInterval(() => {
-        //     if (executeMovement(contextRef.current))
-        //         drawScene(contextRef.current);
-        // }, 10);
+        setInterval(() => {
+            contextRef.current.sunAngle += 0.001;
+            contextRef.current.sunPosition = new Vector3(-Math.cos(contextRef.current.sunAngle), 0.2, Math.sin(contextRef.current.sunAngle)).scale(100);
+            contextRef.current.moonPosition.transformByQuaternion(contextRef.current.moonRotation);
+            drawScene(contextRef.current);
+        }, 10);
 
         canvas.current.addEventListener('wheel', mouseWheel);
         canvas.current.addEventListener('mousedown', mouseDown);
@@ -159,6 +181,11 @@ const App = () => {
         canvas.current.addEventListener('mousemove', mouseMove);
         window.addEventListener('keydown', keyDown);
         window.addEventListener('keyup', keyUp);
+        window.addEventListener('beforeunload', () => {
+            Cookies.set("CameraPitch", contextRef.current.camera.getPitch().toString());
+            Cookies.set("CameraYaw",   contextRef.current.camera.getYaw().toString());
+            Cookies.set("CameraZoom",  contextRef.current.camera.getZoom().toString());
+        });
 
         window.addEventListener('resize', () => {
             if (resizeCanvas(canvas.current))
@@ -208,7 +235,7 @@ const App = () => {
         if (ctx.mousePressed) {
             const newPos = new Vector2(event.clientX, event.clientY);
             
-            const newYaw   = ctx.camera.getYaw()   - ((newPos.x - ctx.mousePos.x) * 0.11) * Math.PI / 180;
+            const newYaw   = ctx.camera.getYaw() - ((newPos.x - ctx.mousePos.x) * 0.11) * Math.PI / 180;
             const newPitch = ctx.camera.getPitch(); //+ ((newPos.y - ctx.mousePos.y) * 0.11) * Math.PI / 180;
 
             ctx.camera.setRotation(newPitch, newYaw);
@@ -237,7 +264,7 @@ const App = () => {
         <div className='relative bg-white h-screen w-full'>
             <canvas ref={canvas} className='w-full h-screen'></canvas>
             
-            <UIPanel noExpand={true}>
+            <UIPanel>
                 Terrain Displacement Factor:
                 <RangeSlider 
                     inputRef={terrainDisplacementFactorSlider}
