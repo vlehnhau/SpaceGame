@@ -149,7 +149,7 @@ function parseMTL(text) {
         materials[unparsedArgs] = material;
       },
 
-      Ns(parts)       { material.shininess      = parseFloat(parts[0]); },
+      Ns(parts)       { material.shininess      = parts.map(parseFloat); },
       Ka(parts)       { material.ambient        = parts.map(parseFloat); },
       Kd(parts)       { material.diffuse        = parts.map(parseFloat); },
       Ks(parts)       { material.specular       = parts.map(parseFloat); },
