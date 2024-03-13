@@ -216,6 +216,8 @@ export class Game {
             const renderComp = entity.components.find(component => component instanceof comp.RenderComp) as comp.RenderComp;
             const positionComp = entity.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
 
+            console.log(renderComp.voaMatInfo.length)
+
             renderComp.voaMatInfo.forEach(phase => {
                 const rotationComp = entity.components.find(component => component instanceof comp.RotationComp) as comp.RotationComp;
 
@@ -241,7 +243,7 @@ export class Game {
                 let opacityLoc = gl.getUniformLocation(this.shaderID, 'uOpacity'); 
                 
                 const lightPosition = [15000.0, 15000.0, 1500.0]; 
-                const lightColor = [0.5, 0.1, 0.1]
+                const lightColor = [1.0, 1.0, 1.0]
 
                 const lightPositionLoc = gl.getUniformLocation(this.shaderID, 'uLightPosition');
                 const lightColorLoc = gl.getUniformLocation(this.shaderID, 'uLightColor');
