@@ -37,11 +37,11 @@ void main() {
 
     vec3 result = ambient * (1.0 / uOpticalDensity) + (diffuse + specular + emissive) * 0.0001;
 
-    // if (uIllum == 2) {
-    //     result *= 0.2; 
-    // } else {
-    //     result *= 0.5;
-    // }
+    if (uIllum == 2) {
+        result *= 0.2; 
+    } else {
+        result *= 0.5;
+    }
 
     float gamma = 1.2;
     result = result / (result + vec3(1.0));

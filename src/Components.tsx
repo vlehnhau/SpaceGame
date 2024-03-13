@@ -29,7 +29,5 @@ export class MaxRadius implements Component {
          //   console.log(vertexPositions[i], vertexPositions[i+1], vertexPositions[i+2], i);
         //}
         }
-
-        console.log(this.maxRadius);
      }
 }

@@ -18,6 +18,7 @@ import ModelMtlRawBullettracer from './../resources/LazerBullet.mtl?raw';
 
 import ModelObjRawAsteroidOne from './../resources/Rock.obj?raw';
 import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
+
 import { render } from "react-dom";
 import { createCubemap } from "./cubemap";
 
@@ -31,6 +32,7 @@ export class Game {
     skyboxShaderProgram: WebGLProgram;
     skyboxVao: {vao: WebGLVertexArrayObject, iboSize: number};
 
+    score: number
 
     objListAsteroids: Array<exportObjLoader>;
 
@@ -46,6 +48,8 @@ export class Game {
         this.objListAsteroids = [loadObj(gl, ModelObjRawAsteroidOne, ModelMtlRawAsteroidOne)];
 
         this.objBullet = loadObj(gl, ModelObjRawBullettracer, ModelMtlRawBullettracer);
+
+        this.score = 0;
 
         this.entities = [];
 
@@ -68,7 +72,7 @@ export class Game {
     }
 
     spawnAstroid() {
-        let startPos = new Vector3(randomIntFromInterval(-10000, 10000), randomIntFromInterval(-4000, 4000), randomIntFromInterval(-6000, -5000));
+        let startPos = new Vector3(randomIntFromInterval(-1000, 1000), randomIntFromInterval(-400, 400), randomIntFromInterval(-6000, -5000));
         let x = randomIntFromInterval(0, this.objListAsteroids.length - 1);
 
         this.entities.push(new ent.Asteroid(startPos, this.objListAsteroids[x].vaoInfos, this.objListAsteroids[x].vertexPositions));
@@ -165,24 +169,53 @@ export class Game {
 
         });
     }
-
+    
     collisionAsteroid() {
         let player = (this.entities as any).find(entity => entity instanceof ent.Player) as ent.Player;
-        let asteroid = (this.entities as any).find(entity => entity instanceof ent.Asteroid) as ent.Asteroid;
         let playerPos = player.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
-        let asteroidPos = asteroid.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
         let playerRadius = player.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;
-        let asteroidRadius = asteroid.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;
 
-        let distanceCenter = Math.sqrt(Math.pow(playerPos.pos.x - asteroidPos.pos.x, 2) + Math.pow(playerPos.pos.y - asteroidPos.pos.y, 2) + Math.pow(playerPos.pos.z - asteroidPos.pos.z, 2));
-        let distance = (distanceCenter - (playerRadius.maxRadius + asteroidRadius.maxRadius));
+        // let asteroid = (this.entities as any).find(entity => entity instanceof ent.Asteroid) as ent.Asteroid;
+        // let asteroidPos = asteroid.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+        // let asteroidRadius = asteroid.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;  
+
+        // let distanceCenter = Math.sqrt(Math.pow(playerPos.pos.x - asteroidPos.pos.x, 2) + Math.pow(playerPos.pos.y - asteroidPos.pos.y, 2) + Math.pow(playerPos.pos.z - asteroidPos.pos.z, 2));
+        // let distance = (distanceCenter - (playerRadius.maxRadius + asteroidRadius.maxRadius));
 
         //console.log(playerRadius, asteroidRadius, distance);
 
-        if (distance <= 0) {
-            console.log('Collision');
-            asteroidPos.pos = new Vector3(asteroidPos.pos.x + 10, asteroidPos.pos.y + 10, asteroidPos.pos.z + 10);
-        }
+        let asteroids = this.entities.filter(entity => entity instanceof ent.Asteroid);
+        let bullets = this.entities.filter(entity => entity instanceof ent.Bullet);
+
+        asteroids.forEach(asteroid =>{
+            let asteroidPos = asteroid.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+            let asteroidRadius = asteroid.components.find(component => component instanceof comp.MaxRadius) as comp.MaxRadius;  
+
+            let distanceCenter = Math.sqrt(Math.pow(playerPos.pos.x - asteroidPos.pos.x, 2) + Math.pow(playerPos.pos.y - asteroidPos.pos.y, 2) + Math.pow(playerPos.pos.z - asteroidPos.pos.z, 2));
+            let distance = (distanceCenter - (playerRadius.maxRadius + asteroidRadius.maxRadius));
+
+            if (distance <= 50) {
+                console.log('Collision');
+                this.entities.splice(this.entities.indexOf(asteroid), 1);
+                this.spawnAstroid();
+                this.score = 0;
+            }
+
+            bullets.forEach(bullet =>{
+                let bulletPos = bullet.components.find(component => component instanceof comp.PositionComp) as comp.PositionComp;
+                let bulletRadius = 50;  
+
+                let distanceCenterHit = Math.sqrt(Math.pow(asteroidPos.pos.x - bulletPos.pos.x, 2) + Math.pow(asteroidPos.pos.y - bulletPos.pos.y, 2) + Math.pow(asteroidPos.pos.z - bulletPos.pos.z, 2));
+                let distanceHit = (distanceCenterHit - (asteroidRadius.maxRadius + bulletRadius));
+                if (distanceHit <= 50) {
+                    console.log('Hit');
+                    this.entities.splice(this.entities.indexOf(asteroid), 1);
+                    this.entities.splice(this.entities.indexOf(bullet), 1);
+                    this.spawnAstroid();
+                    this.score += 1;
+                }
+            });
+        });
     }
 
     draw(gl: WebGL2RenderingContext) {
@@ -195,7 +228,7 @@ export class Game {
         let aspect = gl.canvas.width / gl.canvas.height;
 
         const projMatrix = new Matrix4().perspective({
-            fovy: 80 * Math.PI / 180,
+            fovy: 50 * Math.PI / 180,
             aspect: aspect,
             near: near,
             far: far
@@ -241,7 +274,7 @@ export class Game {
 
                 let opacityLoc = gl.getUniformLocation(this.shaderID, 'uOpacity'); 
                 
-                const lightPosition = [15000.0, 15000.0, 1500.0]; 
+                const lightPosition = [1500000.0, 1500000.0, 1500.0]; 
                 const lightColor = [1.0, 1.0, 1.0]
 
                 const lightPositionLoc = gl.getUniformLocation(this.shaderID, 'uLightPosition');
@@ -261,9 +294,41 @@ export class Game {
             });
         });
 
+        this.updateText("Score: " + this.score);
        this.drawSkybox(gl, projMatrix, viewMatrix);
-
     }
+
+    updateText(content) {
+        let textElement = document.getElementById('textOverlay');
+        if (!textElement) {
+            // Textelement erstellen, wenn es nicht existiert
+            textElement = document.createElement('div');
+            textElement.id = 'textOverlay';
+            textElement.style.position = 'absolute';
+            textElement.style.top = '50px'; // Anpassen der Position nach Bedarf
+            textElement.style.right = '50px'; // Anpassen der Position nach Bedarf
+            textElement.style.fontFamily = 'Arial, sans-serif';
+            textElement.style.fontSize = '16px';
+            textElement.style.color = 'white'; // Anpassen der Textfarbe nach Bedarf
+    
+            // Rote Box hinzufügen
+            const boxElement = document.createElement('div');
+            boxElement.style.backgroundColor = 'red';
+            boxElement.style.padding = '5px'; // Anpassen der Größe des Textfeldes nach Bedarf
+            boxElement.style.borderRadius = '5px'; // Anpassen der Rundung des Textfeldes nach Bedarf
+            boxElement.style.display = 'inline-block';
+            boxElement.style.border = '5px solid darkred'; // Dunkelroter Rahmen
+            textElement.appendChild(boxElement);
+    
+            // Textelement dem Body hinzufügen
+            document.body.appendChild(textElement);
+        }
+    
+        // Textinhalt aktualisieren
+        textElement.firstChild.textContent = content; // Den Inhalt des ersten Kindes (der roten Box) aktualisieren
+    }
+    
+    
         
     async drawSkybox(gl, projMatrix, viewMatrix) {
         if (!this.skyboxTexture) {

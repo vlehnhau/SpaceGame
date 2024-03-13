@@ -93,7 +93,6 @@ export interface Material {
         const vao = createVAO(gl, materialData.vertices, materialData.normals, materialData.texCoords, materialData.indices);
         vaoInfos.push({ vao, iboLength: materialData.indices.length, material: materials[material] });
     });
-    // Ende der Änderung
 
     return { vaoInfos, vertexPositions };
   }
