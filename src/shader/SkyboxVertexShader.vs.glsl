@@ -10,5 +10,5 @@ out vec3 vTextureCoord;
 void main() {
     vTextureCoord = aPosition;
     vec4 pos = uProjectionMatrix * uViewMatrix * vec4(aPosition, 1.0);
-    gl_Position = pos.xyww; // Verändert die z-Koordinate, um Tiefe zu vermeiden
+    gl_Position = pos.xyww;
 }

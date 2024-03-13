@@ -19,6 +19,7 @@ import ModelMtlRawBullettracer from './../resources/LazerBullet.mtl?raw';
 import ModelObjRawAsteroidOne from './../resources/Rock.obj?raw';
 import ModelMtlRawAsteroidOne from './../resources/Rock.mtl?raw';
 import { render } from "react-dom";
+import { createCubemap } from "./cubemap";
 
 function randomIntFromInterval(min, max) { // min and max included 
     return Math.floor(Math.random() * (max - min + 1) + min)
@@ -28,7 +29,7 @@ export class Game {
     entities: Array<ent.Entity>;
     shaderID: WebGLProgram;
     skyboxShaderProgram: WebGLProgram;
-    skyboxVao: WebGLVertexArrayObject;
+    skyboxVao: {vao: WebGLVertexArrayObject, iboSize: number};
 
 
     objListAsteroids: Array<exportObjLoader>;
@@ -262,142 +263,68 @@ export class Game {
             });
         });
 
-        //this.drawSkybox(gl, projMatrix, viewMatrix);
+       this.drawSkybox(gl, projMatrix, viewMatrix);
 
     }
-
-
+        
+    async drawSkybox(gl, projMatrix, viewMatrix) {
+        if (!this.skyboxTexture) {
+            this.skyboxTexture = await createCubemap(gl);
+        }
     
-
-
-
+        if (!this.skyboxVao) {
+            this.skyboxVao = this.createSkyboxVao(gl);
+        }
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        gl.useProgram(this.skyboxShaderProgram);
     
-    // async loadCubemapTextures(gl, paths) {
-    //     this.skyboxTexture = gl.createTexture();
-    //     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxTexture);
+        gl.bindVertexArray(this.skyboxVao.vao);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxTexture);
     
-    //     const faceInfos = [
-    //         { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, path: paths.right },
-    //         { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, path: paths.left },
-    //         { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, path: paths.top },
-    //         { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, path: paths.bottom },
-    //         { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, path: paths.front },
-    //         { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, path: paths.back },
-    //     ];
+        const uProjectionMatrixLoc = gl.getUniformLocation(this.skyboxShaderProgram, 'uProjectionMatrix');
+        const uViewMatrixLoc = gl.getUniformLocation(this.skyboxShaderProgram, 'uViewMatrix');
+        const uSkyboxLoc = gl.getUniformLocation(this.skyboxShaderProgram, 'uSkybox');
     
-    //     const promises = faceInfos.map(faceInfo => new Promise((resolve, reject) => {
-    //         const image = new Image();
-    //         image.onload = () => {
-    //             gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxTexture);
-    //             gl.texImage2D(faceInfo.target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    //             gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    //             gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    //             gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    //             gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    //             gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-    //         };
-    //         image.onerror = () => reject(new Error(`Failed to load image at ${faceInfo.path}`));
-    //         image.src = faceInfo.path;
-    //     }));
+        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, projMatrix);
+        const viewMatrixNoTranslation = new Float32Array(viewMatrix);
+        viewMatrixNoTranslation[12] = 0;
+        viewMatrixNoTranslation[13] = 0;
+        viewMatrixNoTranslation[14] = 0;
+        gl.uniformMatrix4fv(uViewMatrixLoc, false, viewMatrixNoTranslation);
     
-    //     await Promise.all(promises);
-    //     // Keine Notwendigkeit, das Textur-Objekt zurückzugeben, da es bereits an this.skyboxTexture zugewiesen wurde
-    // }    
+        gl.depthFunc(gl.LEQUAL); // Wichtig für das Zeichnen der Skybox im Hintergrund
+        gl.drawElements(gl.TRIANGLES, this.skyboxVao.iboSize, gl.UNSIGNED_SHORT, 0);
+        gl.depthFunc(gl.LESS); // Setze die Tiefenfunktion zurück für den Rest der Szene
     
-    
-    // async drawSkybox(gl, projMatrix, viewMatrix) {
-    //     if (!this.skyboxTexture) {
-    //         const paths = {
-    //             right: './src/pic/interstellar_bk.png',
-    //             left: './src/pic/interstellar_bk.png',
-    //             top: './src/pic/interstellar_bk.png',
-    //             bottom: './src/pic/interstellar_bk.png',
-    //             front: './src/pic/interstellar_bk.png',
-    //             back: './src/pic/interstellar_bk.png',
-    //         };
-    //         await this.loadCubemapTextures(gl, paths);
-    //     }
-    
-    //     if (!this.skyboxVao) {
-    //         this.skyboxVao = this.createSkyboxVao(gl);
-    //     }
-    
-    //     gl.useProgram(this.skyboxShaderProgram);
-    
-    //     gl.bindVertexArray(this.skyboxVao);
-    //     gl.activeTexture(gl.TEXTURE0);
-    //     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxTexture);
-    
-    //     const uProjectionMatrixLoc = gl.getUniformLocation(this.skyboxShaderProgram, 'uProjectionMatrix');
-    //     const uViewMatrixLoc = gl.getUniformLocation(this.skyboxShaderProgram, 'uViewMatrix');
-    //     const uSkyboxLoc = gl.getUniformLocation(this.skyboxShaderProgram, 'uSkybox');
-    
-    //     gl.uniformMatrix4fv(uProjectionMatrixLoc, false, projMatrix);
-    //     const viewMatrixNoTranslation = new Float32Array(viewMatrix);
-    //     viewMatrixNoTranslation[12] = 0; // Entferne Translation
-    //     viewMatrixNoTranslation[13] = 0;
-    //     viewMatrixNoTranslation[14] = 0;
-    //     gl.uniformMatrix4fv(uViewMatrixLoc, false, viewMatrixNoTranslation);
-    //     gl.uniform1i(uSkyboxLoc, 0);
-    
-    //     gl.depthFunc(gl.LEQUAL); // Wichtig für das Zeichnen der Skybox im Hintergrund
-    //     gl.drawArrays(gl.TRIANGLES, 0, 36);
-    //     gl.depthFunc(gl.LESS); // Setze die Tiefenfunktion zurück für den Rest der Szene
-    
-    //     gl.bindVertexArray(null);
-    // }
-    
+        gl.bindVertexArray(null);
+    }
 
-    // createSkyboxVao(gl) {
-    //     const vertices = new Float32Array([
-    //         -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-    //         -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0,
-    //         -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-    //         -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
-    //         1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0,
-    //         -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0,
-    //     ]);
+    createSkyboxVao(gl) {
+        const vbo = [
+        -1, -1, -1,
+        1, -1, -1,
+        -1, 1, -1,
+        1, 1, -1,
+        -1, -1, 1,
+        1, -1, 1,
+        -1, 1, 1,
+        1, 1, 1
+        ];
+        const ibo = [0, 1, 2, 1, 3, 2, 4, 6, 5, 6, 7, 5, 0, 4, 5, 0, 5, 1, 2, 7, 6, 2, 3, 7, 7, 3, 1, 7, 1, 5, 0, 2, 6, 0, 6, 4];
+
+        const iboSize = ibo.length;
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vbo), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+        const iboBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ibo), gl.STATIC_DRAW);
     
-    //     const vao = gl.createVertexArray();
-    //     gl.bindVertexArray(vao);
-    
-    //     const vbo = gl.createBuffer();
-    //     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    //     gl.bufferData(gl.ARRAY_BUFFER , vertices, gl.STATIC_DRAW);
-    
-    //     const positionAttributeLocation = gl.getAttribLocation(this.skyboxShaderProgram, 'aPosition');
-    //     gl.enableVertexAttribArray(positionAttributeLocation);
-    //     gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
-    
-    //     gl.bindVertexArray(null);
-    //     return vao;
-    // }
+        return { vao, iboSize };
+    }
 }
